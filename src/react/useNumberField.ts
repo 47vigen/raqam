@@ -44,7 +44,9 @@ export function useNumberField(
     copyBehavior = "formatted",
     stepHoldDelay = 400,
     stepHoldInterval = 200,
-  } = props;
+    formatValue: customFormatValue,
+    parseValue: customParseValue,
+  } = props; // formatValue/parseValue are on UseNumberFieldStateOptions (inherited)
 
   const {
     step = 1,
@@ -118,6 +120,7 @@ export function useNumberField(
       if (disabled || readOnly) return;
       if (document.activeElement !== el) return;
       e.preventDefault();
+      state._setLastChangeReason("wheel");
       if (e.deltaY < 0) {
         state.increment();
       } else {
@@ -129,27 +132,111 @@ export function useNumberField(
     return () => el.removeEventListener("wheel", handler);
   }, [allowMouseWheel, disabled, readOnly, state, inputRef]);
 
+  // ── IME Composition state ────────────────────────────────────────────────
+  // During CJK IME input, partial composed characters must not trigger live
+  // formatting. We suspend formatting during composition and resume on end.
+  const isComposing = useRef(false);
+
+  const handleCompositionStart = useCallback(() => {
+    isComposing.current = true;
+  }, []);
+
+  const handleCompositionEnd = useCallback(
+    (e: React.CompositionEvent<HTMLInputElement>) => {
+      isComposing.current = false;
+      // After composition ends, run the full format cycle on the composed value
+      const composedValue = e.currentTarget.value;
+      const info = formatter.getLocaleInfo();
+      const normalized = normalizeDigits(composedValue);
+
+      let displayValue: string;
+      if (customParseValue) {
+        const result = customParseValue(normalized);
+        if (result.isIntermediate) {
+          displayValue = normalized;
+        } else if (result.value !== null && customFormatValue) {
+          displayValue = customFormatValue(result.value);
+        } else if (result.value !== null) {
+          displayValue = formatter.format(result.value);
+        } else {
+          displayValue = normalized;
+        }
+        // Disable cursor engine for custom format/parse
+        pendingCursor.current = displayValue.length;
+      } else if (liveFormat) {
+        const result = parser.parse(normalized);
+        if (result.isIntermediate) {
+          displayValue = normalized;
+        } else if (result.value !== null) {
+          displayValue = customFormatValue
+            ? customFormatValue(result.value)
+            : formatter.format(result.value);
+        } else {
+          displayValue = normalized === "" ? "" : normalized;
+        }
+        pendingCursor.current = computeNewCursorPosition(
+          composedValue,
+          composedValue.length,
+          displayValue,
+          info,
+          "insertCompositionText"
+        );
+      } else {
+        displayValue = normalized;
+        pendingCursor.current = normalized.length;
+      }
+
+      state._setLastChangeReason("input");
+      state.setInputValue(displayValue);
+    },
+    [formatter, parser, liveFormat, state, customFormatValue, customParseValue]
+  );
+
   // ── onChange handler ─────────────────────────────────────────────────────
   const handleChange = useCallback(
     (e: React.ChangeEvent<HTMLInputElement>) => {
-      const rawValue = e.target.value;
-      const cursorPos = e.target.selectionStart ?? rawValue.length;
+      const rawInputValue = e.target.value;
+      const cursorPos = e.target.selectionStart ?? rawInputValue.length;
       const inputType = (e.nativeEvent as InputEvent).inputType;
       const info = formatter.getLocaleInfo();
 
+      // During IME composition, skip live formatting — just track the raw value
+      if (isComposing.current) {
+        state.setInputValue(rawInputValue);
+        return;
+      }
+
       // Normalise non-Latin digits
-      const normalized = normalizeDigits(rawValue);
+      const normalized = normalizeDigits(rawInputValue);
 
       let displayValue: string;
 
-      if (liveFormat) {
+      // Custom parse/format escape hatch
+      if (customParseValue) {
+        const result = customParseValue(normalized);
+        if (result.isIntermediate) {
+          displayValue = normalized;
+        } else if (result.value !== null) {
+          displayValue = customFormatValue
+            ? customFormatValue(result.value)
+            : formatter.format(result.value);
+        } else if (normalized === "") {
+          displayValue = "";
+        } else {
+          displayValue = normalized;
+        }
+        // Can't predict cursor position with custom formatter — place at end
+        pendingCursor.current = displayValue.length;
+      } else if (liveFormat) {
         const result = parser.parse(normalized);
 
         if (result.isIntermediate) {
           // Preserve intermediate states (lone "-", trailing "1.", etc.)
           displayValue = normalized;
         } else if (result.value !== null) {
-          displayValue = formatter.format(result.value);
+          displayValue = customFormatValue
+            ? customFormatValue(result.value)
+            : formatter.format(result.value);
         } else if (normalized === "") {
           displayValue = "";
         } else {
@@ -158,23 +245,29 @@ export function useNumberField(
           displayValue = normalized;
         }
 
-        // Compute and stash cursor position for useLayoutEffect
-        pendingCursor.current = computeNewCursorPosition(
-          rawValue,
-          cursorPos,
-          displayValue,
-          info,
-          inputType
-        );
+        if (customFormatValue) {
+          // Custom format: can't predict cursor, place at end
+          pendingCursor.current = displayValue.length;
+        } else {
+          // Compute and stash cursor position for useLayoutEffect
+          pendingCursor.current = computeNewCursorPosition(
+            rawInputValue,
+            cursorPos,
+            displayValue,
+            info,
+            inputType
+          );
+        }
       } else {
         // No live format — just pass through normalised digits
         displayValue = normalized;
         pendingCursor.current = cursorPos;
       }
 
+      state._setLastChangeReason("input");
       state.setInputValue(displayValue);
     },
-    [formatter, parser, liveFormat, state]
+    [formatter, parser, liveFormat, state, customFormatValue, customParseValue]
   );
 
   // ── Paste handler ────────────────────────────────────────────────────────
@@ -191,6 +284,21 @@ export function useNumberField(
 
       // 2. Normalize non-Latin digits to ASCII
       const normalized = normalizeDigits(stripped);
+
+      state._setLastChangeReason("paste");
+
+      // Custom parse escape hatch
+      if (customParseValue) {
+        const result = customParseValue(normalized);
+        if (result.value !== null) {
+          const formatted = customFormatValue
+            ? customFormatValue(result.value)
+            : formatter.format(result.value);
+          state.setInputValue(formatted);
+          pendingCursor.current = formatted.length;
+        }
+        return;
+      }
 
       // 3. Try parse with current locale parser
       const result = parser.parse(normalized);
@@ -218,7 +326,7 @@ export function useNumberField(
       }
       // If still invalid, silently discard — don't paste garbage into the field
     },
-    [parser, formatter, state]
+    [parser, formatter, state, customFormatValue, customParseValue]
   );
 
   // ── Copy / Cut handlers ──────────────────────────────────────────────────
@@ -256,6 +364,7 @@ export function useNumberField(
       if (key === "ArrowUp" || key === "ArrowDown") {
         e.preventDefault();
         const direction = key === "ArrowUp" ? 1 : -1;
+        state._setLastChangeReason("keyboard");
         if (e.shiftKey) {
           direction > 0 ? state.increment(largeStep) : state.decrement(largeStep);
         } else if (e.metaKey || e.ctrlKey) {
@@ -268,12 +377,14 @@ export function useNumberField(
 
       if (key === "PageUp") {
         e.preventDefault();
+        state._setLastChangeReason("keyboard");
         state.increment(largeStep);
         return;
       }
 
       if (key === "PageDown") {
         e.preventDefault();
+        state._setLastChangeReason("keyboard");
         state.decrement(largeStep);
         return;
       }
@@ -281,6 +392,7 @@ export function useNumberField(
       if (key === "Home") {
         if (minValue !== undefined) {
           e.preventDefault();
+          state._setLastChangeReason("keyboard");
           state.decrementToMin();
         }
         return;
@@ -289,12 +401,14 @@ export function useNumberField(
       if (key === "End") {
         if (maxValue !== undefined) {
           e.preventDefault();
+          state._setLastChangeReason("keyboard");
           state.incrementToMax();
         }
         return;
       }
 
       if (key === "Enter") {
+        state._setLastChangeReason("blur");
         state.commit();
         return;
       }
@@ -305,20 +419,37 @@ export function useNumberField(
   // ── Blur handler ─────────────────────────────────────────────────────────
   const handleBlur = useCallback(
     (e: React.FocusEvent<HTMLInputElement>) => {
+      state.setIsFocused(false);
+      state._setLastChangeReason("blur");
       state.commit();
       onBlur?.(e);
     },
     [state, onBlur]
   );
 
+  // ── Focus handler ────────────────────────────────────────────────────────
+  const handleFocus = useCallback(
+    (e: React.FocusEvent<HTMLInputElement>) => {
+      state.setIsFocused(true);
+      onFocus?.(e);
+    },
+    [state, onFocus]
+  );
+
   // ── Press-and-hold for increment/decrement buttons ───────────────────────
-  const incrementHold = usePressAndHold(() => state.increment(), {
+  const incrementHold = usePressAndHold(() => {
+    state._setLastChangeReason("increment");
+    state.increment();
+  }, {
     delay: stepHoldDelay,
     interval: stepHoldInterval,
     disabled: disabled || !state.canIncrement,
   });
 
-  const decrementHold = usePressAndHold(() => state.decrement(), {
+  const decrementHold = usePressAndHold(() => {
+    state._setLastChangeReason("decrement");
+    state.decrement();
+  }, {
     delay: stepHoldDelay,
     interval: stepHoldInterval,
     disabled: disabled || !state.canDecrement,
@@ -327,17 +458,21 @@ export function useNumberField(
   // ── ARIA valuetext ───────────────────────────────────────────────────────
   const ariaValueText = useMemo(() => {
     if (state.numberValue == null) return undefined;
-    return formatter.format(state.numberValue);
-  }, [state.numberValue, formatter]);
+    return customFormatValue
+      ? customFormatValue(state.numberValue)
+      : formatter.format(state.numberValue);
+  }, [state.numberValue, formatter, customFormatValue]);
 
   // ── RTL detection ────────────────────────────────────────────────────────
   const localeInfo = formatter.getLocaleInfo();
 
-  // ── Out-of-range detection (for aria-invalid + data-invalid) ────────────
+  // ── Out-of-range + validation detection (for aria-invalid + data-invalid) ─
   const isOutOfRange =
     state.numberValue !== null &&
     ((minValue !== undefined && state.numberValue < minValue) ||
       (maxValue !== undefined && state.numberValue > maxValue));
+
+  const isInvalid = isOutOfRange || state.validationState === "invalid";
 
   // ── Prop maps ────────────────────────────────────────────────────────────
 
@@ -369,7 +504,8 @@ export function useNumberField(
     "aria-disabled": disabled || undefined,
     "aria-readonly": readOnly || undefined,
     "aria-required": required || undefined,
-    "aria-invalid": isOutOfRange ? true : undefined,
+    "aria-invalid": isInvalid ? true : undefined,
+    "aria-errormessage": isInvalid && state.validationError ? errorId : undefined,
     disabled,
     readOnly,
     required,
@@ -377,10 +513,12 @@ export function useNumberField(
     onChange: handleChange,
     onKeyDown: handleKeyDown,
     onBlur: handleBlur,
-    onFocus: onFocus as React.FocusEventHandler<HTMLInputElement>,
+    onFocus: handleFocus,
     onPaste: handlePaste,
     onCopy: copyBehavior !== "formatted" ? handleCopy : undefined,
     onCut: copyBehavior !== "formatted" ? handleCut : undefined,
+    onCompositionStart: handleCompositionStart,
+    onCompositionEnd: handleCompositionEnd,
     // RTL: numbers are always LTR, align-right in RTL contexts
     // unicodeBidi: embed isolates the LTR number from surrounding RTL text
     style: localeInfo.isRTL
@@ -390,7 +528,7 @@ export function useNumberField(
     "data-disabled": disabled ? "" : undefined,
     "data-readonly": readOnly ? "" : undefined,
     "data-required": required ? "" : undefined,
-    "data-invalid": isOutOfRange ? "" : undefined,
+    "data-invalid": isInvalid ? "" : undefined,
   } as React.InputHTMLAttributes<HTMLInputElement>;
 
   const hiddenInputProps: React.InputHTMLAttributes<HTMLInputElement> | null =

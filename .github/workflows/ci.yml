@@ -1,0 +1,75 @@
+name: CI
+
+on:
+  push:
+    branches: [main, "claude/**"]
+  pull_request:
+    branches: [main]
+
+jobs:
+  test:
+    name: Test (React ${{ matrix.react-version }})
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        react-version: ["18", "19"]
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 10
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install
+
+      - name: Install React ${{ matrix.react-version }} for matrix
+        if: matrix.react-version == '18'
+        run: |
+          pnpm add -D react@18 react-dom@18 @types/react@18 @types/react-dom@18 \
+            --override react=18 --override react-dom=18
+
+      - name: TypeCheck
+        run: pnpm typecheck
+
+      - name: Test
+        run: pnpm test
+
+  build:
+    name: Build & Validate
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 10
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install
+
+      - name: Build
+        run: pnpm build
+
+      - name: Validate package exports
+        run: npx publint
+
+      - name: Check bundle sizes
+        run: pnpm size
+
+      - name: Upload dist artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: dist
+          path: dist/
+          retention-days: 7

@@ -90,7 +90,14 @@ export function createParser(opts: ParserOptions = {}): Parser {
     // 1. Normalise non-Latin digits to ASCII
     let s = normalizeDigits(raw);
 
-    // 2. Strip prefix / suffix
+    // 2. Accounting format: "(1,234.56)" or "($1,234.56)" → negative
+    // Intl.NumberFormat with currencySign:"accounting" wraps negatives in parens
+    const accountingMatch = s.match(/^\((.+)\)$/);
+    if (accountingMatch) {
+      s = "-" + accountingMatch[1];
+    }
+
+    // 3. Strip prefix / suffix
     if (opts.prefix && s.startsWith(opts.prefix)) {
       s = s.slice(opts.prefix.length);
     }
@@ -98,22 +105,22 @@ export function createParser(opts: ParserOptions = {}): Parser {
       s = s.slice(0, -opts.suffix.length);
     }
 
-    // 3. Strip grouping separators  (escape special chars)
+    // 4. Strip grouping separators  (escape special chars)
     if (info.groupingSeparator) {
       s = s.split(info.groupingSeparator).join("");
     }
 
-    // 4. Replace locale decimal separator with ASCII "."
+    // 5. Replace locale decimal separator with ASCII "."
     if (info.decimalSeparator !== ".") {
       s = s.split(info.decimalSeparator).join(".");
     }
 
-    // 5. Replace locale minus sign with ASCII "-"
+    // 6. Replace locale minus sign with ASCII "-"
     if (info.minusSign !== "-") {
       s = s.split(info.minusSign).join("-");
     }
 
-    // 6. Strip currency symbol, percent sign, spaces that Intl might prepend/append
+    // 7. Strip currency symbol, percent sign, spaces that Intl might prepend/append
     // Strip any remaining non-numeric chars except digits, ".", "-"
     // (handles currency prefixes/suffixes from Intl)
     s = s.replace(/[^\d.\-]/g, "").trim();

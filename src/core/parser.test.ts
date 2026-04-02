@@ -1,5 +1,6 @@
 import { describe, it, expect } from "vitest";
 import { createParser } from "./parser.js";
+import { createFormatter } from "./formatter.js";
 
 describe("createParser — en-US", () => {
   const parser = createParser({ locale: "en-US" });
@@ -122,5 +123,33 @@ describe("createParser — prefix/suffix", () => {
 
   it("strips prefix and suffix before parsing", () => {
     expect(parser.parse("$1,234.56 USD").value).toBe(1234.56);
+  });
+});
+
+describe("createParser — accounting format (parentheses = negative)", () => {
+  const parser = createParser({
+    locale: "en-US",
+    formatOptions: { style: "currency", currency: "USD", currencySign: "accounting" },
+  });
+
+  it("parses (1,234.56) as -1234.56", () => {
+    expect(parser.parse("($1,234.56)").value).toBe(-1234.56);
+  });
+
+  it("parses (1,234) as -1234", () => {
+    expect(parser.parse("($1,234)").value).toBe(-1234);
+  });
+
+  it("parses positive value normally", () => {
+    expect(parser.parse("$1,234.56").value).toBe(1234.56);
+  });
+
+  it("round-trips: format then parse returns original value", () => {
+    const fmt = createFormatter({
+      locale: "en-US",
+      formatOptions: { style: "currency", currency: "USD", currencySign: "accounting" },
+    });
+    const formatted = fmt.format(-1234.56);
+    expect(parser.parse(formatted).value).toBe(-1234.56);
   });
 });

@@ -40,40 +40,85 @@ function renderWith(
 
 // ── Data attributes helper ────────────────────────────────────────────────────
 
-function stateDataAttrs(state: NumberFieldState): Record<string, string | undefined> {
+function stateDataAttrs(state: NumberFieldState, isInvalid: boolean): Record<string, string | undefined> {
   const { options } = state;
   return {
     "data-disabled": options.disabled ? "" : undefined,
     "data-readonly": options.readOnly ? "" : undefined,
     "data-required": options.required ? "" : undefined,
     "data-scrubbing": state.isScrubbing ? "" : undefined,
+    "data-focused": state.isFocused ? "" : undefined,
+    "data-invalid": isInvalid ? "" : undefined,
   };
 }
 
 // ── Root ──────────────────────────────────────────────────────────────────────
 
-const Root = forwardRef<HTMLDivElement, NumberFieldRootProps>(
-  function NumberFieldRoot({ children, onValueChange, onValueCommitted, ...props }, ref) {
-    const inputRef = useRef<HTMLInputElement | null>(null);
+// HTML attributes that belong on the wrapper div (not passed to state/aria hooks)
+const DIV_ONLY_KEYS = new Set([
+  "className", "style", "id", "tabIndex", "title", "role",
+  "aria-label", "data-testid", "onClick", "onMouseEnter", "onMouseLeave",
+]);
 
-    // Wrap onChange to also fire onValueChange with details
+function splitProps(props: Record<string, unknown>) {
+  const fieldProps: Record<string, unknown> = {};
+  const divProps: Record<string, unknown> = {};
+  for (const [key, val] of Object.entries(props)) {
+    if (DIV_ONLY_KEYS.has(key) || key.startsWith("data-") || key.startsWith("aria-")) {
+      divProps[key] = val;
+    } else {
+      fieldProps[key] = val;
+    }
+  }
+  return { fieldProps, divProps };
+}
+
+const Root = forwardRef<HTMLDivElement, NumberFieldRootProps>(
+  function NumberFieldRoot({ children, onValueChange, onValueCommitted, ...allProps }, ref) {
+    const inputRef = useRef<HTMLInputElement | null>(null);
+    const { fieldProps, divProps } = splitProps(allProps as Record<string, unknown>);
+    const props = fieldProps as Omit<NumberFieldRootProps, "children" | "onValueChange" | "onValueCommitted">;
+
+    // Keep a stable ref to onValueChange so the onChange closure never goes stale
+    const onValueChangeRef = useRef(onValueChange);
+    onValueChangeRef.current = onValueChange;
+
+    // Keep a stable ref to the state object so onChange can read the current reason
+    const stateRef = useRef<NumberFieldState | null>(null);
+
+    // Wrap onChange to also fire onValueChange with the tracked reason.
+    // This closure captures stateRef (stable) not state (changes each render).
+    // _setLastChangeReason is called synchronously BEFORE the state mutation
+    // that triggers onChange, so stateRef.current._getLastChangeReason() always
+    // returns the correct reason at the time onChange fires.
     const wrappedProps = {
       ...props,
       onChange: (value: number | null) => {
         props.onChange?.(value);
-        onValueChange?.(value, {
-          reason: "input",
-          formattedValue: "",
-        });
+        if (onValueChangeRef.current && stateRef.current) {
+          onValueChangeRef.current(value, {
+            reason: stateRef.current._getLastChangeReason(),
+            formattedValue: stateRef.current.inputValue,
+          });
+        }
       },
     };
 
     const state = useNumberFieldState(wrappedProps);
+    stateRef.current = state; // always keep stateRef pointing to current state
+
     const aria = useNumberField(wrappedProps, state, inputRef);
+
+    // Determine if field is invalid (out-of-range or failed validate)
+    const isInvalid =
+      state.validationState === "invalid" ||
+      (state.numberValue !== null &&
+        ((props.minValue !== undefined && state.numberValue < props.minValue) ||
+          (props.maxValue !== undefined && state.numberValue > props.maxValue)));
 
     return (
       <NumberFieldContext.Provider value={{ state, aria, inputRef, props: wrappedProps }}>
-        <div ref={ref} {...stateDataAttrs(state)}>
+        <div ref={ref} {...(divProps as React.HTMLAttributes<HTMLDivElement>)} {...stateDataAttrs(state, isInvalid)}>
           {children}
         </div>
       </NumberFieldContext.Provider>
@@ -259,12 +304,40 @@ interface ErrorMessageProps extends React.HTMLAttributes<HTMLParagraphElement> {
 
 const ErrorMessage = forwardRef<HTMLParagraphElement, ErrorMessageProps>(
   function NumberFieldErrorMessage({ children, ...rest }, ref) {
-    const { aria } = useNumberFieldContext();
+    const { aria, state } = useNumberFieldContext();
+    // If no children provided, fall back to the validation error string (if any)
+    const content = children ?? state.validationError ?? null;
+    if (!content) return null;
     return (
       <p ref={ref} {...aria.errorMessageProps} {...rest}>
-        {children}
+        {content}
       </p>
     );
+  }
+);
+
+// ── Formatted ─────────────────────────────────────────────────────────────────
+//
+// Read-only display of the current formatted value. Useful for showing the
+// formatted number inline without an editable input (e.g., in a data table).
+
+interface FormattedProps extends React.HTMLAttributes<HTMLSpanElement> {
+  render?: RenderProp;
+}
+
+const Formatted = forwardRef<HTMLSpanElement, FormattedProps>(
+  function NumberFieldFormatted({ render, ...rest }, ref) {
+    const { state } = useNumberFieldContext();
+    const el = (
+      <span
+        ref={ref}
+        aria-hidden="true"
+        {...rest}
+      >
+        {state.inputValue}
+      </span>
+    );
+    return renderWith(el, render, state);
   }
 );
 
@@ -282,4 +355,5 @@ export const NumberField = {
   ScrubAreaCursor,
   Description,
   ErrorMessage,
+  Formatted,
 };

@@ -100,6 +100,30 @@ export interface UseNumberFieldStateOptions {
    * default: false
    */
   allowOutOfRange?: boolean;
+  /**
+   * Custom validation function. Called on every value change.
+   * - Return `true` or `null`/`undefined` → valid
+   * - Return `false` → invalid (aria-invalid set, no error message)
+   * - Return a `string` → invalid with that string as the error message
+   */
+  validate?: (value: number | null) => boolean | string | null | undefined;
+  /**
+   * Fires with the raw unformatted string the user typed, preserving full
+   * decimal precision before JS float conversion. Useful for financial apps
+   * that need arbitrary-precision string arithmetic.
+   * Fires alongside `onChange`.
+   */
+  onRawChange?: (rawValue: string | null) => void;
+  /**
+   * Custom format function. When provided, replaces the built-in Intl.NumberFormat
+   * formatter for display purposes. Also used for initial display value.
+   */
+  formatValue?: (value: number) => string;
+  /**
+   * Custom parse function. When provided, replaces the built-in locale-aware parser.
+   * Must return `{ value: number | null, isIntermediate: boolean }`.
+   */
+  parseValue?: (input: string) => { value: number | null; isIntermediate: boolean };
 }
 
 // ── State ─────────────────────────────────────────────────────────────────────
@@ -109,6 +133,11 @@ export interface NumberFieldState {
   inputValue: string;
   /** The parsed numeric value (null for empty/invalid) */
   numberValue: number | null;
+  /**
+   * The raw string value exactly as the user typed it (before formatting).
+   * Preserves full decimal precision — useful for financial arbitrary-precision math.
+   */
+  rawValue: string | null;
   /** Whether increment is currently possible */
   canIncrement: boolean;
   /** Whether decrement is currently possible */
@@ -117,6 +146,18 @@ export interface NumberFieldState {
   isScrubbing: boolean;
   /** Update the isScrubbing state (called by useScrubArea) */
   setIsScrubbing: (val: boolean) => void;
+  /** Whether the input is currently focused */
+  isFocused: boolean;
+  /** Update the isFocused state (called by useNumberField) */
+  setIsFocused: (val: boolean) => void;
+  /** Current validation state — 'valid' if no validate prop, or based on validate result */
+  validationState: "valid" | "invalid";
+  /** Error message from validate() if it returned a string, otherwise null */
+  validationError: string | null;
+  /** Internal: set the reason for the next onChange call (used by useNumberField) */
+  _setLastChangeReason: (reason: ChangeReason) => void;
+  /** Internal: read the current change reason (used by NumberField.Root) */
+  _getLastChangeReason: () => ChangeReason;
   /** Update display string (triggers parse + onChange) */
   setInputValue: (val: string) => void;
   /** Directly set the numeric value (triggers format + onChange) */
@@ -134,6 +175,18 @@ export interface NumberFieldState {
   /** Raw options (for hooks that need them) */
   options: UseNumberFieldStateOptions;
 }
+
+/** Reason for a value change — propagated through onValueChange details */
+export type ChangeReason =
+  | "input"
+  | "clear"
+  | "blur"
+  | "paste"
+  | "keyboard"
+  | "increment"
+  | "decrement"
+  | "wheel"
+  | "scrub";
 
 // ── Hook API ─────────────────────────────────────────────────────────────────
 
@@ -162,6 +215,7 @@ export interface UseNumberFieldProps extends UseNumberFieldStateOptions {
   stepHoldInterval?: number;
   onFocus?: (e: React.FocusEvent<HTMLInputElement>) => void;
   onBlur?: (e: React.FocusEvent<HTMLInputElement>) => void;
+  // Note: formatValue and parseValue are inherited from UseNumberFieldStateOptions
 }
 
 export interface NumberFieldAria {
@@ -215,20 +269,15 @@ export interface ScrubAreaCursorProps
 
 export interface NumberFieldRootProps extends UseNumberFieldProps {
   children?: React.ReactNode;
+  /** CSS class for the root wrapper div */
+  className?: string;
+  /** Inline style for the root wrapper div */
+  style?: React.CSSProperties;
   /** Fires on every meaningful value change */
   onValueChange?: (
     value: number | null,
     details: {
-      reason:
-        | "input"
-        | "clear"
-        | "blur"
-        | "paste"
-        | "keyboard"
-        | "increment"
-        | "decrement"
-        | "wheel"
-        | "scrub";
+      reason: ChangeReason;
       formattedValue: string;
       event?: React.SyntheticEvent;
     }
