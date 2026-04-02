@@ -3,6 +3,7 @@
 // ── Hooks ─────────────────────────────────────────────────────────────────────
 export { useNumberFieldState } from "./react/useNumberFieldState.js";
 export { useNumberField } from "./react/useNumberField.js";
+export { useNumberFieldFormat } from "./react/useNumberFieldFormat.js";
 export { useControllableState } from "./react/useControllableState.js";
 export { usePressAndHold } from "./react/usePressAndHold.js";
 export { useScrubArea } from "./react/useScrubArea.js";
@@ -26,6 +27,7 @@ export {
   registerLocale,
 } from "./core/normalizer.js";
 export { getCaretBoundary, computeNewCursorPosition } from "./core/cursor.js";
+export { presets } from "./core/presets.js";
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 export type {
@@ -34,6 +36,7 @@ export type {
   ParseResult,
   CaretBoundary,
   DigitBlock,
+  ChangeReason,
   UseNumberFieldStateOptions,
   NumberFieldState,
   UseNumberFieldProps,

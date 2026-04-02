@@ -358,3 +358,145 @@ describe("useNumberFieldState", () => {
     });
   });
 });
+
+describe("validate callback", () => {
+  it("starts valid when no validate prop", () => {
+    const { result } = renderHook(() =>
+      useNumberFieldState({ locale: "en-US", defaultValue: 5 })
+    );
+    expect(result.current.validationState).toBe("valid");
+    expect(result.current.validationError).toBeNull();
+  });
+
+  it("validate returning false sets invalid state", () => {
+    const { result } = renderHook(() =>
+      useNumberFieldState({
+        locale: "en-US",
+        defaultValue: 3,
+        validate: (v) => v !== null && v % 2 === 0,
+      })
+    );
+    // 3 is odd — invalid
+    expect(result.current.validationState).toBe("invalid");
+    expect(result.current.validationError).toBeNull();
+  });
+
+  it("validate returning true sets valid state", () => {
+    const { result } = renderHook(() =>
+      useNumberFieldState({
+        locale: "en-US",
+        defaultValue: 4,
+        validate: (v) => v !== null && v % 2 === 0,
+      })
+    );
+    // 4 is even — valid
+    expect(result.current.validationState).toBe("valid");
+  });
+
+  it("validate returning a string sets invalid with error message", () => {
+    const { result } = renderHook(() =>
+      useNumberFieldState({
+        locale: "en-US",
+        defaultValue: -5,
+        validate: (v) => (v !== null && v < 0 ? "Must be positive" : true),
+      })
+    );
+    expect(result.current.validationState).toBe("invalid");
+    expect(result.current.validationError).toBe("Must be positive");
+  });
+
+  it("re-validates on value change", () => {
+    const { result } = renderHook(() =>
+      useNumberFieldState({
+        locale: "en-US",
+        defaultValue: 1,
+        validate: (v) => (v !== null && v >= 10 ? true : "Must be >= 10"),
+      })
+    );
+    expect(result.current.validationState).toBe("invalid");
+    act(() => result.current.setNumberValue(10));
+    expect(result.current.validationState).toBe("valid");
+    expect(result.current.validationError).toBeNull();
+  });
+
+  it("validate with null value", () => {
+    const { result } = renderHook(() =>
+      useNumberFieldState({
+        locale: "en-US",
+        validate: (v) => (v === null ? "Required" : true),
+      })
+    );
+    // Default value is null — should be invalid
+    expect(result.current.validationState).toBe("invalid");
+    expect(result.current.validationError).toBe("Required");
+  });
+});
+
+describe("rawValue (arbitrary precision)", () => {
+  it("starts null when no defaultValue", () => {
+    const { result } = renderHook(() =>
+      useNumberFieldState({ locale: "en-US" })
+    );
+    expect(result.current.rawValue).toBeNull();
+  });
+
+  it("initializes from defaultValue as string", () => {
+    const { result } = renderHook(() =>
+      useNumberFieldState({ locale: "en-US", defaultValue: 1234.56 })
+    );
+    expect(result.current.rawValue).toBe("1234.56");
+  });
+
+  it("fires onRawChange with input string (not formatted)", () => {
+    const onRaw = vi.fn();
+    const { result } = renderHook(() =>
+      useNumberFieldState({ locale: "en-US", onRawChange: onRaw })
+    );
+    act(() => result.current.setInputValue("1,234.56"));
+    expect(onRaw).toHaveBeenCalledWith("1,234.56");
+  });
+
+  it("fires onRawChange with null when cleared", () => {
+    const onRaw = vi.fn();
+    const { result } = renderHook(() =>
+      useNumberFieldState({ locale: "en-US", onRawChange: onRaw })
+    );
+    act(() => result.current.setInputValue(""));
+    expect(onRaw).toHaveBeenCalledWith(null);
+  });
+
+  it("fires onRawChange when setNumberValue is called", () => {
+    const onRaw = vi.fn();
+    const { result } = renderHook(() =>
+      useNumberFieldState({ locale: "en-US", onRawChange: onRaw })
+    );
+    act(() => result.current.setNumberValue(42.5));
+    expect(onRaw).toHaveBeenCalledWith("42.5");
+  });
+});
+
+describe("isFocused state", () => {
+  it("starts false", () => {
+    const { result } = renderHook(() =>
+      useNumberFieldState({ locale: "en-US" })
+    );
+    expect(result.current.isFocused).toBe(false);
+  });
+
+  it("can be set to true", () => {
+    const { result } = renderHook(() =>
+      useNumberFieldState({ locale: "en-US" })
+    );
+    act(() => result.current.setIsFocused(true));
+    expect(result.current.isFocused).toBe(true);
+  });
+
+  it("can be toggled back to false", () => {
+    const { result } = renderHook(() =>
+      useNumberFieldState({ locale: "en-US" })
+    );
+    act(() => result.current.setIsFocused(true));
+    act(() => result.current.setIsFocused(false));
+    expect(result.current.isFocused).toBe(false);
+  });
+});

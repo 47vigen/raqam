@@ -417,3 +417,159 @@ describe("NumberField Description and ErrorMessage", () => {
     expect(err).toHaveAttribute("role", "alert");
   });
 });
+
+describe("NumberField.Formatted component", () => {
+  it("renders the formatted value", () => {
+    render(
+      <NumberField.Root
+        locale="en-US"
+        formatOptions={{ style: "currency", currency: "USD" }}
+        defaultValue={1234.56}
+      >
+        <NumberField.Formatted data-testid="fmt" />
+      </NumberField.Root>
+    );
+    const el = screen.getByTestId("fmt");
+    expect(el.textContent).toBe("$1,234.56");
+  });
+
+  it("has aria-hidden attribute", () => {
+    render(
+      <NumberField.Root locale="en-US" defaultValue={42}>
+        <NumberField.Formatted data-testid="fmt" />
+      </NumberField.Root>
+    );
+    expect(screen.getByTestId("fmt")).toHaveAttribute("aria-hidden", "true");
+  });
+
+  it("renders empty string when no value", () => {
+    render(
+      <NumberField.Root locale="en-US">
+        <NumberField.Formatted data-testid="fmt" />
+      </NumberField.Root>
+    );
+    expect(screen.getByTestId("fmt").textContent).toBe("");
+  });
+});
+
+describe("data-focused attribute", () => {
+  it("adds data-focused when input is focused", async () => {
+    const user = userEvent.setup();
+    render(
+      <NumberField.Root data-testid="root" locale="en-US">
+        <NumberField.Input data-testid="input" />
+      </NumberField.Root>
+    );
+    const root = screen.getByTestId("root");
+    const input = screen.getByTestId("input");
+    expect(root).not.toHaveAttribute("data-focused");
+    await user.click(input);
+    expect(root).toHaveAttribute("data-focused");
+  });
+
+  it("removes data-focused when input is blurred", async () => {
+    const user = userEvent.setup();
+    render(
+      <div>
+        <NumberField.Root data-testid="root" locale="en-US">
+          <NumberField.Input data-testid="input" />
+        </NumberField.Root>
+        <button data-testid="other">Other</button>
+      </div>
+    );
+    const root = screen.getByTestId("root");
+    const input = screen.getByTestId("input");
+    await user.click(input);
+    expect(root).toHaveAttribute("data-focused");
+    await user.click(screen.getByTestId("other"));
+    expect(root).not.toHaveAttribute("data-focused");
+  });
+});
+
+describe("validate callback integration", () => {
+  it("sets data-invalid when validate returns false", async () => {
+    const user = userEvent.setup();
+    render(
+      <NumberField.Root
+        data-testid="root"
+        locale="en-US"
+        defaultValue={3}
+        validate={(v) => v !== null && v % 2 === 0}
+      >
+        <NumberField.Input data-testid="input" />
+      </NumberField.Root>
+    );
+    const root = screen.getByTestId("root");
+    // 3 is odd — invalid from mount
+    expect(root).toHaveAttribute("data-invalid");
+    // Type a valid even number
+    const input = screen.getByTestId("input");
+    await user.tripleClick(input);
+    await user.type(input, "4");
+    expect(root).not.toHaveAttribute("data-invalid");
+  });
+
+  it("ErrorMessage auto-renders validate error string", () => {
+    render(
+      <NumberField.Root
+        locale="en-US"
+        defaultValue={-5}
+        validate={(v) => (v !== null && v < 0 ? "Must be positive" : true)}
+      >
+        <NumberField.Input />
+        <NumberField.ErrorMessage data-testid="err" />
+      </NumberField.Root>
+    );
+    expect(screen.getByTestId("err").textContent).toBe("Must be positive");
+  });
+
+  it("ErrorMessage hidden when valid", () => {
+    render(
+      <NumberField.Root
+        locale="en-US"
+        defaultValue={5}
+        validate={(v) => (v !== null && v > 0 ? true : "Must be positive")}
+      >
+        <NumberField.Input />
+        <NumberField.ErrorMessage data-testid="err" />
+      </NumberField.Root>
+    );
+    expect(screen.queryByTestId("err")).toBeNull();
+  });
+});
+
+describe("IME composition handling", () => {
+  it("fires compositionStart/End events on input", () => {
+    const { container } = render(
+      <NumberField.Root locale="en-US">
+        <NumberField.Input data-testid="input" />
+      </NumberField.Root>
+    );
+    const input = container.querySelector("input")!;
+    // Verify the events don't throw
+    expect(() => {
+      fireEvent.compositionStart(input);
+      fireEvent.compositionEnd(input, { data: "42" });
+    }).not.toThrow();
+  });
+});
+
+describe("custom formatValue/parseValue", () => {
+  it("uses custom format function", () => {
+    render(
+      <NumberField.Root
+        locale="en-US"
+        defaultValue={1234}
+        formatValue={(v) => `${v.toFixed(2)} pts`}
+        parseValue={(s) => {
+          const n = parseFloat(s.replace(/[^0-9.]/g, ""));
+          return { value: isNaN(n) ? null : n, isIntermediate: false };
+        }}
+      >
+        <NumberField.Input data-testid="input" />
+      </NumberField.Root>
+    );
+    // Custom format: "1234.00 pts"
+    expect((screen.getByTestId("input") as HTMLInputElement).value).toBe("1234.00 pts");
+  });
+});

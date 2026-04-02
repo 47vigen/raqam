@@ -4,6 +4,7 @@ export type {
   ParseResult,
   CaretBoundary,
   DigitBlock,
+  ChangeReason,
   UseNumberFieldStateOptions,
   NumberFieldState,
   UseNumberFieldProps,
@@ -12,6 +13,8 @@ export type {
   RenderProp,
   StateRenderFn,
 } from "./types.js";
+
+export { presets } from "./presets.js";
 
 export { normalizeDigits, isNonLatinDigit, registerLocale } from "./normalizer.js";
 export type { LocaleConfig } from "./normalizer.js";

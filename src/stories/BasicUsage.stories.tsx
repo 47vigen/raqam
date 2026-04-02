@@ -1,6 +1,7 @@
 import type { Meta, StoryObj } from "@storybook/react";
 import React, { useState } from "react";
 import { NumberField } from "../react/NumberField.js";
+import { useNumberFieldFormat } from "../react/useNumberFieldFormat.js";
 
 const meta = {
   title: "numra/Basic Usage",
@@ -147,4 +148,83 @@ export const PressAndHold: Story = {
       <Field locale="en-US" defaultValue={0} stepHoldDelay={400} stepHoldInterval={200} />
     </div>
   ),
+};
+
+export const DataFocusedStyling: StoryObj = {
+  name: "data-focused CSS styling",
+  render: () => (
+    <div style={{ fontFamily: "system-ui", display: "flex", flexDirection: "column", gap: 12 }}>
+      <style>{`
+        .numra-demo[data-focused] .numra-group {
+          border-color: #2563eb;
+          box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.15);
+        }
+        .numra-demo[data-invalid] .numra-group {
+          border-color: #dc2626;
+        }
+      `}</style>
+      <p style={{ margin: 0, fontSize: 13, color: "#6b7280" }}>
+        Click the input — CSS styles automatically via <code>data-focused</code> attribute.
+        No JS class toggling needed.
+      </p>
+      <NumberField.Root
+        locale="en-US"
+        defaultValue={42}
+        className="numra-demo"
+      >
+        <NumberField.Label style={{ fontSize: 13, fontWeight: 500 }}>
+          Amount
+        </NumberField.Label>
+        <NumberField.Group
+          className="numra-group"
+          style={{
+            display: "flex",
+            border: "1px solid #d1d5db",
+            borderRadius: 6,
+            overflow: "hidden",
+            transition: "border-color 0.15s, box-shadow 0.15s",
+          }}
+        >
+          <NumberField.Decrement style={{ padding: "8px 12px", background: "#f9fafb", border: "none", cursor: "pointer" }}>−</NumberField.Decrement>
+          <NumberField.Input style={{ flex: 1, padding: "8px 12px", border: "none", outline: "none", fontSize: 16 }} />
+          <NumberField.Increment style={{ padding: "8px 12px", background: "#f9fafb", border: "none", cursor: "pointer" }}>+</NumberField.Increment>
+        </NumberField.Group>
+      </NumberField.Root>
+    </div>
+  ),
+};
+
+export const FormattedDisplayComponent: StoryObj = {
+  name: "NumberField.Formatted (read-only display)",
+  render: () => {
+    const [value, setValue] = useState<number | null>(1234567.89);
+    const displayFormatted = useNumberFieldFormat(value, {
+      locale: "en-US",
+      formatOptions: { style: "currency", currency: "USD" },
+    });
+
+    return (
+      <div style={{ fontFamily: "system-ui", display: "flex", flexDirection: "column", gap: 16 }}>
+        <div style={{ padding: 12, background: "#f0f9ff", borderRadius: 8, fontSize: 14 }}>
+          <strong>Input hook output:</strong> {displayFormatted}
+        </div>
+        <NumberField.Root
+          locale="en-US"
+          formatOptions={{ style: "currency", currency: "USD" }}
+          value={value}
+          onChange={setValue}
+        >
+          <NumberField.Label style={{ fontSize: 13, fontWeight: 500 }}>
+            Edit value
+          </NumberField.Label>
+          <div style={{ display: "flex", border: "1px solid #ccc", borderRadius: 6 }}>
+            <NumberField.Input style={{ flex: 1, padding: "8px 12px", border: "none", outline: "none", fontSize: 16 }} />
+          </div>
+          <div style={{ fontSize: 13, color: "#6b7280" }}>
+            Formatted display: <NumberField.Formatted style={{ fontWeight: 600, color: "#111" }} />
+          </div>
+        </NumberField.Root>
+      </div>
+    );
+  },
 };

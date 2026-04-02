@@ -1,5 +1,9 @@
 import { useCallback, useMemo, useRef, useState } from "react";
-import type { NumberFieldState, UseNumberFieldStateOptions } from "../core/types.js";
+import type {
+  ChangeReason,
+  NumberFieldState,
+  UseNumberFieldStateOptions,
+} from "../core/types.js";
 import { createFormatter } from "../core/formatter.js";
 import { createParser } from "../core/parser.js";
 import { useControllableState } from "./useControllableState.js";
@@ -51,6 +55,9 @@ export function useNumberFieldState(
     prefix,
     suffix,
     allowOutOfRange = false,
+    validate,
+    onRawChange,
+    formatValue: customFormatValue,
   } = options;
 
   // ── Formatter & parser (re-created only when deps change) ──────────────────
@@ -109,12 +116,19 @@ export function useNumberFieldState(
   // ── Display string ─────────────────────────────────────────────────────────
   // Stored in local state — can transiently diverge from numberValue
   // (e.g. while typing "1." which isn't a valid JS number yet)
+  const formatDisplay = useCallback(
+    (n: number): string =>
+      customFormatValue ? customFormatValue(n) : formatter.format(n),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [formatter, customFormatValue]
+  );
+
   const initialDisplay = useMemo(() => {
     if (options.defaultValue != null) {
-      return formatter.format(options.defaultValue);
+      return formatDisplay(options.defaultValue);
     }
     if (options.value != null) {
-      return formatter.format(options.value);
+      return formatDisplay(options.value);
     }
     return "";
   // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -125,8 +139,52 @@ export function useNumberFieldState(
   // Track last formatted value so we can sync controlled value changes
   const lastFormattedRef = useRef<string>(initialDisplay);
 
-  // Sync controlled value → display string when value changes externally
-  // (not when the user is typing)
+  // ── Raw value (precision-preserving string) ────────────────────────────────
+  const [rawValue, setRawValueState] = useState<string | null>(
+    options.defaultValue != null ? String(options.defaultValue) : null
+  );
+
+  // ── Validation state ───────────────────────────────────────────────────────
+  const runValidation = useCallback(
+    (val: number | null): { validationState: "valid" | "invalid"; validationError: string | null } => {
+      if (!validate) return { validationState: "valid", validationError: null };
+      const result = validate(val);
+      if (result === false) return { validationState: "invalid", validationError: null };
+      if (typeof result === "string") return { validationState: "invalid", validationError: result };
+      return { validationState: "valid", validationError: null };
+    },
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [validate]
+  );
+
+  const initialValidation = useMemo(() => {
+    const initVal = options.defaultValue ?? options.value ?? null;
+    return runValidation(initVal != null ? initVal : null);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []); // Only on mount
+
+  const [validationState, setValidationState] = useState<"valid" | "invalid">(
+    initialValidation.validationState
+  );
+  const [validationError, setValidationError] = useState<string | null>(
+    initialValidation.validationError
+  );
+
+  // ── isScrubbing / isFocused state ──────────────────────────────────────────
+  const [isScrubbing, setIsScrubbing] = useState(false);
+  const [isFocused, setIsFocused] = useState(false);
+
+  // ── Change reason ref (no re-render needed) ────────────────────────────────
+  const lastChangeReasonRef = useRef<ChangeReason>("input");
+  const _setLastChangeReason = useCallback((reason: ChangeReason) => {
+    lastChangeReasonRef.current = reason;
+  }, []);
+
+  const _getLastChangeReason = useCallback((): ChangeReason => {
+    return lastChangeReasonRef.current;
+  }, []);
+
+  // ── Sync controlled value → display string when value changes externally ───
   const externalValue = options.value;
   const prevExternalValueRef = useRef(externalValue);
   if (prevExternalValueRef.current !== externalValue) {
@@ -135,18 +193,18 @@ export function useNumberFieldState(
       const formatted = formatter.format(externalValue);
       if (formatted !== lastFormattedRef.current) {
         lastFormattedRef.current = formatted;
-        // Using a ref mutation here avoids an extra render cycle;
-        // React will flush this synchronously in the current render.
-        // We'll update display state in a useEffect-like pattern below.
       }
     } else {
       lastFormattedRef.current = "";
     }
   }
 
-  // ── isScrubbing state ──────────────────────────────────────────────────────
-  // Using useReducer for a boolean toggle to keep it a stable ref-like pattern
-  const [isScrubbing, setIsScrubbing] = useState(false);
+  // ── Internal helper: apply validation after a value change ────────────────
+  const applyValidation = useCallback((val: number | null) => {
+    const { validationState: vs, validationError: ve } = runValidation(val);
+    setValidationState(vs);
+    setValidationError(ve);
+  }, [runValidation]);
 
   // ── setInputValue ──────────────────────────────────────────────────────────
   const setInputValue = useCallback(
@@ -161,8 +219,12 @@ export function useNumberFieldState(
 
       setInputValueRaw(val);
       setNumberValue(result.value);
+      // rawValue tracks what user typed, not the formatted output
+      setRawValueState(result.value !== null ? val : null);
+      onRawChange?.(result.value !== null ? val : null);
+      applyValidation(result.value);
     },
-    [parser, clampBehavior, allowOutOfRange, minValue, maxValue, setNumberValue]
+    [parser, clampBehavior, allowOutOfRange, minValue, maxValue, setNumberValue, onRawChange, applyValidation]
   );
 
   // ── setNumberValue (external) ──────────────────────────────────────────────
@@ -170,15 +232,21 @@ export function useNumberFieldState(
     (val: number | null) => {
       setNumberValue(val);
       if (val != null) {
-        const formatted = formatter.format(val);
+        const formatted = formatDisplay(val);
         setInputValueRaw(formatted);
         lastFormattedRef.current = formatted;
+        const rawStr = String(val);
+        setRawValueState(rawStr);
+        onRawChange?.(rawStr);
       } else {
         setInputValueRaw("");
         lastFormattedRef.current = "";
+        setRawValueState(null);
+        onRawChange?.(null);
       }
+      applyValidation(val);
     },
-    [formatter, setNumberValue]
+    [formatDisplay, setNumberValue, onRawChange, applyValidation]
   );
 
   // ── commit (called on blur) ────────────────────────────────────────────────
@@ -195,14 +263,15 @@ export function useNumberFieldState(
       clamped = clamp(numberValue, minValue, maxValue);
     }
 
-    const formatted = formatter.format(clamped);
+    const formatted = formatDisplay(clamped);
     setInputValueRaw(formatted);
     lastFormattedRef.current = formatted;
 
     if (clamped !== numberValue) {
       setNumberValue(clamped);
     }
-  }, [numberValue, clampBehavior, allowOutOfRange, minValue, maxValue, formatter, setNumberValue]);
+    applyValidation(clamped);
+  }, [numberValue, clampBehavior, allowOutOfRange, minValue, maxValue, formatter, setNumberValue, applyValidation]);
 
   // ── Step computation ───────────────────────────────────────────────────────
   const resolvedLargeStep = largeStep ?? step * 10;
@@ -249,10 +318,17 @@ export function useNumberFieldState(
   return {
     inputValue,
     numberValue: numberValue ?? null,
+    rawValue,
     canIncrement,
     canDecrement,
     isScrubbing,
     setIsScrubbing,
+    isFocused,
+    setIsFocused,
+    validationState,
+    validationError,
+    _setLastChangeReason,
+    _getLastChangeReason,
     setInputValue,
     setNumberValue: setNumericValue,
     commit,
