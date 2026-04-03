@@ -109,8 +109,8 @@ test.describe("min/max clamping works in all locales", () => {
     );
 
     const dec = page.getByTestId("dec");
-    await dec.click(); // 1 → 0
-    await dec.click(); // should stay at 0
+    await dec.click(); // 1 → 0 (button becomes disabled at minValue)
+    await dec.click({ force: true }); // force-click disabled button — value must stay at 0
 
     const ariaValueNow = await page.getByTestId("input").getAttribute("aria-valuenow");
     expect(Number(ariaValueNow)).toBe(0);
@@ -122,8 +122,8 @@ test.describe("min/max clamping works in all locales", () => {
     );
 
     const inc = page.getByTestId("inc");
-    await inc.click(); // 9 → 10
-    await inc.click(); // should stay at 10
+    await inc.click(); // 9 → 10 (button becomes disabled at maxValue)
+    await inc.click({ force: true }); // force-click disabled button — value must stay at 10
 
     const ariaValueNow = await page.getByTestId("input").getAttribute("aria-valuenow");
     expect(Number(ariaValueNow)).toBe(10);

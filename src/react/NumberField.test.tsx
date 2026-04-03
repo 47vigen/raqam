@@ -554,6 +554,43 @@ describe("IME composition handling", () => {
   });
 });
 
+describe("smart backspace over grouping separator", () => {
+  it("backspace when cursor is right after comma deletes preceding digit", async () => {
+    const user = userEvent.setup();
+    render(
+      <NumberField.Root locale="en-US" defaultValue={1234}>
+        <NumberField.Input data-testid="input" />
+      </NumberField.Root>
+    );
+    const input = screen.getByTestId("input") as HTMLInputElement;
+    // "1,234" — place cursor right after the comma (position 2)
+    await user.click(input);
+    input.setSelectionRange(2, 2);
+
+    // Dispatch a keydown for Backspace
+    fireEvent.keyDown(input, { key: "Backspace" });
+
+    // The preceding digit ("1") and the comma should be removed → "234"
+    expect(input.value).toBe("234");
+  });
+
+  it("backspace without cursor after separator falls through to default behaviour", async () => {
+    const user = userEvent.setup();
+    render(
+      <NumberField.Root locale="en-US" defaultValue={1234}>
+        <NumberField.Input data-testid="input2" />
+      </NumberField.Root>
+    );
+    const input = screen.getByTestId("input2") as HTMLInputElement;
+    await user.click(input);
+    // Cursor at end of "1,234" (position 5) — normal backspace, no special handling
+    input.setSelectionRange(5, 5);
+    await user.keyboard("{Backspace}");
+    // Should delete the "4" → "123" formatted
+    expect(input.value).toBe("123");
+  });
+});
+
 describe("custom formatValue/parseValue", () => {
   it("uses custom format function", () => {
     render(
