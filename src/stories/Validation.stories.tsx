@@ -1,5 +1,6 @@
 import type { Meta, StoryObj } from "@storybook/react";
-import React, { useState } from "react";
+import React from "react";
+import { useForm, Controller } from "react-hook-form";
 import { NumberField } from "../react/NumberField.js";
 
 const meta: Meta = {
@@ -114,51 +115,59 @@ export const EvenNumbersOnly: StoryObj = {
 };
 
 export const ReactHookFormIntegration: StoryObj = {
+  name: "react-hook-form (Controller)",
   render: () => {
-    // Simulated form state without react-hook-form for demo purposes
-    // In real usage: import { Controller } from 'react-hook-form'
-    const [value, setValue] = useState<number | null>(null);
-    const [submitted, setSubmitted] = useState(false);
-    const [error, setError] = useState<string | null>(null);
+    type FormValues = { amount: number | null };
 
-    const validate = (v: number | null) => {
-      if (v === null) return "Amount is required";
-      if (v < 1) return "Minimum is $1.00";
-      if (v > 10000) return "Maximum is $10,000.00";
-      return true;
-    };
+    const {
+      control,
+      handleSubmit,
+      formState: { errors, isSubmitSuccessful },
+      watch,
+    } = useForm<FormValues>({ defaultValues: { amount: null } });
 
-    const handleSubmit = (e: React.FormEvent) => {
-      e.preventDefault();
-      const result = validate(value);
-      if (result !== true) {
-        setError(typeof result === "string" ? result : "Invalid");
-        return;
-      }
-      setError(null);
-      setSubmitted(true);
-    };
+    const amount = watch("amount");
 
     return (
-      <form onSubmit={handleSubmit} style={{ display: "flex", flexDirection: "column", gap: 12, maxWidth: 280 }}>
-        <NumberField.Root
-          locale="en-US"
-          formatOptions={{ style: "currency", currency: "USD" }}
-          value={value}
-          onChange={setValue}
-          validate={validate}
-          style={rootStyle}
-        >
-          <NumberField.Label style={labelStyle}>Donation amount</NumberField.Label>
-          <div style={inputWrapStyle}>
-            <NumberField.Input style={inputStyle} />
-          </div>
-          <NumberField.ErrorMessage style={errorStyle} />
-        </NumberField.Root>
-        {error && <p style={{ color: "#dc2626", fontSize: 12 }}>{error}</p>}
-        {submitted && (
-          <p style={{ color: "#16a34a", fontSize: 14 }}>
-            ✓ Submitted: {value?.toLocaleString("en-US", { style: "currency", currency: "USD" })}
+      <form
+        onSubmit={handleSubmit(() => {/* submitted */})}
+        style={{ display: "flex", flexDirection: "column", gap: 12, maxWidth: 280 }}
+        noValidate
+      >
+        <Controller
+          name="amount"
+          control={control}
+          rules={{
+            validate: (v) => {
+              if (v === null) return "Amount is required";
+              if (v < 1) return "Minimum is $1.00";
+              if (v > 10000) return "Maximum is $10,000.00";
+              return true;
+            },
+          }}
+          render={({ field }) => (
+            <NumberField.Root
+              locale="en-US"
+              formatOptions={{ style: "currency", currency: "USD" }}
+              value={field.value}
+              onChange={field.onChange}
+              onBlur={field.onBlur}
+              style={rootStyle}
+            >
+              <NumberField.Label style={labelStyle}>Donation amount</NumberField.Label>
+              <div style={inputWrapStyle}>
+                <NumberField.Input style={inputStyle} placeholder="$0.00" />
+              </div>
+              {errors.amount && (
+                <p style={{ ...errorStyle, margin: 0 }}>{errors.amount.message}</p>
+              )}
+            </NumberField.Root>
+          )}
+        />
+        {isSubmitSuccessful && (
+          <p style={{ color: "#16a34a", fontSize: 14, margin: 0 }}>
+            Submitted:{" "}
+            {amount?.toLocaleString("en-US", { style: "currency", currency: "USD" })}
           </p>
         )}
         <button type="submit" style={{ padding: "8px 16px", borderRadius: 6, cursor: "pointer" }}>

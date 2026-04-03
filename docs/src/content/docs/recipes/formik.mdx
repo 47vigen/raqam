@@ -1,0 +1,129 @@
+---
+title: Formik
+description: Integrating numra with Formik using the useFormik hook or Field component.
+---
+
+## Installation
+
+```sh
+npm install formik
+```
+
+## useFormik pattern
+
+```tsx
+import { useFormik } from "formik";
+import { NumberField } from "numra";
+
+export function OrderForm() {
+  const formik = useFormik({
+    initialValues: { quantity: 1, price: null as number | null },
+    validate(values) {
+      const errors: Record<string, string> = {};
+      if (values.quantity < 1) errors.quantity = "Must be at least 1";
+      if (values.price === null) errors.price = "Price is required";
+      else if (values.price < 0.01) errors.price = "Must be positive";
+      return errors;
+    },
+    onSubmit(values) {
+      console.log("Submitted:", values);
+    },
+  });
+
+  return (
+    <form onSubmit={formik.handleSubmit}>
+      <NumberField.Root
+        locale="en-US"
+        value={formik.values.quantity}
+        onChange={(v) => formik.setFieldValue("quantity", v)}
+        onBlur={() => formik.setFieldTouched("quantity")}
+        minValue={1}
+        step={1}
+        validate={(v) =>
+          v !== null && v < 1 ? "Must be at least 1" : true
+        }
+      >
+        <NumberField.Label>Quantity</NumberField.Label>
+        <NumberField.Group>
+          <NumberField.Decrement>−</NumberField.Decrement>
+          <NumberField.Input />
+          <NumberField.Increment>+</NumberField.Increment>
+        </NumberField.Group>
+        {formik.touched.quantity && formik.errors.quantity && (
+          <NumberField.ErrorMessage>
+            {formik.errors.quantity}
+          </NumberField.ErrorMessage>
+        )}
+      </NumberField.Root>
+
+      <NumberField.Root
+        locale="en-US"
+        formatOptions={{ style: "currency", currency: "USD" }}
+        value={formik.values.price}
+        onChange={(v) => formik.setFieldValue("price", v)}
+        onBlur={() => formik.setFieldTouched("price")}
+      >
+        <NumberField.Label>Unit price</NumberField.Label>
+        <NumberField.Input />
+        {formik.touched.price && formik.errors.price && (
+          <NumberField.ErrorMessage>
+            {formik.errors.price}
+          </NumberField.ErrorMessage>
+        )}
+      </NumberField.Root>
+
+      <button type="submit">Place order</button>
+    </form>
+  );
+}
+```
+
+## Yup schema validation
+
+```tsx
+import { useFormik } from "formik";
+import * as Yup from "yup";
+
+const schema = Yup.object({
+  price: Yup.number()
+    .required("Price is required")
+    .min(0.01, "Must be at least $0.01")
+    .max(10000, "Cannot exceed $10,000"),
+});
+
+export function PriceForm() {
+  const formik = useFormik({
+    initialValues: { price: 0 },
+    validationSchema: schema,
+    onSubmit: console.log,
+  });
+
+  return (
+    <form onSubmit={formik.handleSubmit}>
+      <NumberField.Root
+        locale="en-US"
+        formatOptions={{ style: "currency", currency: "USD" }}
+        value={formik.values.price}
+        onChange={(v) => formik.setFieldValue("price", v ?? 0)}
+        onBlur={() => formik.setFieldTouched("price")}
+      >
+        <NumberField.Label>Price</NumberField.Label>
+        <NumberField.Input name="price" />
+        {formik.touched.price && formik.errors.price && (
+          <p style={{ color: "red", fontSize: 12 }}>{formik.errors.price}</p>
+        )}
+      </NumberField.Root>
+
+      <button type="submit">Submit</button>
+    </form>
+  );
+}
+```
+
+## Tips
+
+- Use `setFieldValue("field", v)` (not Formik's `handleChange`) since numra
+  gives you a `number | null`, not a DOM event.
+- Use `setFieldTouched("field")` in `onBlur` to trigger touched state.
+- Pass the Formik error message directly to `NumberField.ErrorMessage` as
+  children for custom error rendering.

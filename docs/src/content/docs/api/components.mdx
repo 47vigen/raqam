@@ -1,0 +1,222 @@
+---
+title: NumberField Components
+description: Headless compound components — the fastest way to build a number field.
+---
+
+import { Aside } from "@astrojs/starlight/components";
+
+The `NumberField` namespace exports headless compound components that handle all
+wiring internally via React Context. No prop drilling, no `ref` management.
+
+## Import
+
+```ts
+import { NumberField } from "numra";
+```
+
+## Component tree
+
+```tsx
+<NumberField.Root ...>          {/* context provider + state */}
+  <NumberField.Label />         {/* <label> */}
+  <NumberField.Group>           {/* <div role="group"> */}
+    <NumberField.Decrement />   {/* <button> */}
+    <NumberField.Input />       {/* <input type="text"> */}
+    <NumberField.Increment />   {/* <button> */}
+  </NumberField.Group>
+  <NumberField.ScrubArea>       {/* drag-to-change wrapper */}
+    <NumberField.ScrubAreaCursor /> {/* custom pointer cursor */}
+  </NumberField.ScrubArea>
+  <NumberField.Formatted />     {/* read-only formatted display */}
+  <NumberField.Description />   {/* helper text */}
+  <NumberField.ErrorMessage />  {/* validation error */}
+  <NumberField.HiddenInput />   {/* form submission value */}
+</NumberField.Root>
+```
+
+Only `Root` and `Input` are required. All others are optional.
+
+---
+
+## `NumberField.Root`
+
+Context provider. Accepts all `UseNumberFieldStateOptions` props plus:
+
+| Prop | Type | Description |
+|------|------|-------------|
+| `locale` | `string` | BCP 47 locale (required). |
+| `formatOptions` | `Intl.NumberFormatOptions` | Number format configuration. |
+| `value` / `defaultValue` | `number \| null` | Controlled/uncontrolled value. |
+| `onChange` | `(v: number \| null) => void` | Called on commit. |
+| `minValue` / `maxValue` | `number` | Constraints. |
+| `step` / `largeStep` / `smallStep` | `number` | Step sizes. |
+| `validate` | `(v: number \| null) => boolean \| string` | Custom validator. |
+| `disabled` / `readOnly` | `boolean` | Interaction state. |
+| `allowNegative` / `allowDecimal` | `boolean` | Input constraints. |
+| `prefix` / `suffix` | `string` | Affixes. |
+| `copyBehavior` | `"formatted" \| "raw" \| "number"` | Clipboard behaviour. |
+| `allowOutOfRange` | `boolean` | Skip clamping; show `aria-invalid` instead. |
+| `render` | `RenderProp<"div">` | Replace the root `<div>` with another element. |
+
+Data attributes set on the root element:
+
+| Attribute | Set when |
+|-----------|----------|
+| `data-focused` | Input is focused |
+| `data-invalid` | Value is invalid |
+| `data-disabled` | `disabled` is `true` |
+| `data-readonly` | `readOnly` is `true` |
+
+---
+
+## `NumberField.Input`
+
+The text input. Accepts all standard `<input>` props except `type` (always `"text"`).
+
+| Prop | Type | Description |
+|------|------|-------------|
+| `render` | `RenderProp<"input">` | Swap the element (e.g. a styled component). |
+
+---
+
+## `NumberField.Label`
+
+```tsx
+<NumberField.Label>Price</NumberField.Label>
+```
+
+Renders a `<label>` with `htmlFor` wired to the input `id`. Accepts all
+`<label>` props.
+
+---
+
+## `NumberField.Group`
+
+Wraps the input and stepper buttons. Renders `<div role="group">`. Accepts all
+`<div>` props.
+
+---
+
+## `NumberField.Increment` / `NumberField.Decrement`
+
+Stepper buttons. Accepts all `<button>` props.
+
+```tsx
+<NumberField.Decrement>−</NumberField.Decrement>
+<NumberField.Increment>+</NumberField.Increment>
+```
+
+Buttons are automatically `disabled` when at `minValue`/`maxValue` or when the
+field is `disabled` or `readOnly`.
+
+Press-and-hold acceleration: hold for `stepHoldDelay` ms → interval fires at
+`stepHoldInterval` ms.
+
+---
+
+## `NumberField.ScrubArea`
+
+Wraps any element; dragging over it adjusts the value via Pointer Lock API.
+
+| Prop | Type | Default | Description |
+|------|------|---------|-------------|
+| `direction` | `"horizontal" \| "vertical" \| "both"` | `"horizontal"` | Drag axis. |
+| `pixelsPerStep` | `number` | `10` | Pixels dragged per step. |
+| `render` | `RenderProp<"div">` | — | Custom element. |
+
+```tsx
+<NumberField.ScrubArea direction="horizontal">
+  Drag to adjust
+</NumberField.ScrubArea>
+```
+
+`data-scrubbing` is set on the element while dragging.
+
+---
+
+## `NumberField.ScrubAreaCursor`
+
+Optional. Renders a custom SVG cursor that appears while scrubbing (using Pointer Lock). Accepts `<div>` props.
+
+```tsx
+<NumberField.ScrubArea>
+  <span>Drag me</span>
+  <NumberField.ScrubAreaCursor>
+    ↔
+  </NumberField.ScrubAreaCursor>
+</NumberField.ScrubArea>
+```
+
+---
+
+## `NumberField.Formatted`
+
+A `<span>` (or custom element) that displays the current formatted value as
+read-only text. Useful for dual-display UIs (edit + display side by side).
+
+```tsx
+<NumberField.Formatted />
+{/* Renders: "$1,234.56" */}
+```
+
+---
+
+## `NumberField.Description`
+
+Helper text. Automatically wired to `aria-describedby` on the input.
+
+```tsx
+<NumberField.Description>
+  Enter a value between 0 and 100.
+</NumberField.Description>
+```
+
+---
+
+## `NumberField.ErrorMessage`
+
+Displays validation errors. Has `role="alert"` and is only shown when the field
+is invalid.
+
+If you pass no children, it renders `state.validationError` automatically:
+
+```tsx
+<NumberField.ErrorMessage />
+{/* Renders: "Must be a positive number" */}
+```
+
+Or supply your own content:
+
+```tsx
+<NumberField.ErrorMessage>
+  Custom error text.
+</NumberField.ErrorMessage>
+```
+
+---
+
+## `NumberField.HiddenInput`
+
+An `<input type="hidden">` for HTML form submission. Its `value` is always the
+raw number (no formatting).
+
+```tsx
+<NumberField.HiddenInput name="price" />
+```
+
+---
+
+## render prop
+
+Every component accepts a `render` prop for element replacement (no `asChild` peer deps required):
+
+```tsx
+<NumberField.Input
+  render={(props) => <MyStyledInput {...props} />}
+/>
+```
+
+<Aside type="tip">
+  Use `data-focused`, `data-invalid`, `data-disabled` on `NumberField.Root`
+  for pure-CSS state styling — no JavaScript class toggling needed.
+</Aside>

@@ -1,0 +1,158 @@
+---
+title: Format Presets
+description: Named Intl.NumberFormatOptions configurations for common number input patterns.
+---
+
+`presets` is a collection of named `Intl.NumberFormatOptions` objects for the
+most common number formatting patterns. Pass them directly as `formatOptions`.
+
+## Import
+
+```ts
+import { presets } from "numra";
+// or
+import { presets } from "numra/core";
+```
+
+## Usage
+
+```tsx
+import { presets } from "numra";
+
+<NumberField.Root formatOptions={presets.currency("USD")} locale="en-US" />
+<NumberField.Root formatOptions={presets.percent} locale="en-US" />
+<NumberField.Root formatOptions={presets.compact} locale="en-US" />
+```
+
+## Reference
+
+### `presets.currency(code)`
+
+```ts
+presets.currency("USD")
+// → { style: "currency", currency: "USD" }
+```
+
+Standard currency formatting. Shows symbol + thousands separators.
+
+| Locale | Value | Formatted |
+|--------|-------|-----------|
+| en-US | 1234.56 | $1,234.56 |
+| de-DE | 1234.56 | 1.234,56 € |
+| ja-JP | 1234 | ¥1,234 |
+| fa-IR | 1234 | ۱٬۲۳۴ ﷼ |
+
+---
+
+### `presets.accounting(code)`
+
+```ts
+presets.accounting("USD")
+// → { style: "currency", currency: "USD", currencySign: "accounting" }
+```
+
+Like `currency` but shows negative values in parentheses: `(1,234.56)`.
+numra automatically parses `(...)` back to a negative number.
+
+---
+
+### `presets.percent`
+
+```ts
+presets.percent
+// → { style: "percent" }
+```
+
+Formats `0.42` as `"42%"`. Store values as decimals (0–1 range).
+
+---
+
+### `presets.compact`
+
+```ts
+presets.compact
+// → { notation: "compact" }
+```
+
+Short compact notation: `1,200,000` → `"1.2M"`.
+
+---
+
+### `presets.compactLong`
+
+```ts
+presets.compactLong
+// → { notation: "compact", compactDisplay: "long" }
+```
+
+Long compact notation: `1,200,000` → `"1.2 million"`.
+
+---
+
+### `presets.scientific`
+
+```ts
+presets.scientific
+// → { notation: "scientific" }
+```
+
+Scientific notation: `1234567` → `"1.234567E6"`.
+
+---
+
+### `presets.engineering`
+
+```ts
+presets.engineering
+// → { notation: "engineering" }
+```
+
+Engineering notation (exponent always a multiple of 3): `12345` → `"12.345E3"`.
+
+---
+
+### `presets.integer`
+
+```ts
+presets.integer
+// → { maximumFractionDigits: 0 }
+```
+
+No decimal places. `1234.5` → `"1,235"` (rounds).
+
+---
+
+### `presets.financial`
+
+```ts
+presets.financial
+// → { minimumFractionDigits: 2, maximumFractionDigits: 2 }
+```
+
+Always two decimal places. Combine with `fixedDecimalScale` prop to force
+`0.00` when empty.
+
+---
+
+### `presets.unit(unit)`
+
+```ts
+presets.unit("kilometer")
+// → { style: "unit", unit: "kilometer" }
+```
+
+Unit formatting. Any CLDR unit identifier works: `"kilometer"`,
+`"liter"`, `"celsius"`, `"kilometer-per-hour"`, etc.
+
+## Composing with your own options
+
+Presets are plain objects — spread them to override:
+
+```ts
+// Compact currency (not standard but possible)
+const compactCurrency = {
+  ...presets.compact,
+  style: "currency" as const,
+  currency: "USD",
+};
+```

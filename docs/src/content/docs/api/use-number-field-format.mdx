@@ -1,0 +1,119 @@
+---
+title: useNumberFieldFormat
+description: Lightweight display-only formatting hook — no input state machine overhead.
+---
+
+`useNumberFieldFormat` formats a number for display using `Intl.NumberFormat`.
+It has zero state machine overhead — ideal for price tables, dashboards, or any
+read-only numeric display.
+
+## Import
+
+```ts
+import { useNumberFieldFormat } from "numra";
+// or
+import { useNumberFieldFormat } from "numra/react";
+```
+
+## Signature
+
+```ts
+function useNumberFieldFormat(
+  value: number | null | undefined,
+  options: {
+    locale?: string;
+    formatOptions?: Intl.NumberFormatOptions;
+  }
+): string;
+```
+
+## Parameters
+
+| Param | Type | Description |
+|-------|------|-------------|
+| `value` | `number \| null \| undefined` | The value to format. Returns `""` for null/undefined. |
+| `options.locale` | `string` | BCP 47 locale (default `"en-US"`). |
+| `options.formatOptions` | `Intl.NumberFormatOptions` | Passed to `Intl.NumberFormat`. |
+
+## Return value
+
+A formatted string, or `""` when `value` is null/undefined/NaN.
+
+## Example — price table
+
+```tsx
+import { useNumberFieldFormat } from "numra";
+
+function PriceTag({ amount }: { amount: number }) {
+  const formatted = useNumberFieldFormat(amount, {
+    locale: "en-US",
+    formatOptions: { style: "currency", currency: "USD" },
+  });
+
+  return <span>{formatted}</span>;
+}
+
+// "en-US" + USD → "$1,234.56"
+// "de-DE" + EUR → "1.234,56 €"
+// "fa-IR" + IRR → "۱٬۲۳۴٫۵۶ ﷼"
+```
+
+## Example — server-side use
+
+For React Server Components or SSR, import from `numra/server` (zero React dependency):
+
+```ts
+import { createFormatter } from "numra/server";
+
+const formatter = createFormatter({
+  locale: "en-US",
+  formatOptions: { style: "currency", currency: "USD" },
+});
+
+const html = `<span>${formatter.format(1234.56)}</span>`;
+// "$1,234.56"
+```
+
+## Example — in a table
+
+```tsx
+const items = [
+  { name: "MacBook Pro", price: 2499 },
+  { name: "iPhone 15 Pro", price: 1199 },
+  { name: "AirPods Pro", price: 249 },
+];
+
+function PriceTable() {
+  return (
+    <table>
+      {items.map((item) => (
+        <PriceRow key={item.name} {...item} />
+      ))}
+    </table>
+  );
+}
+
+function PriceRow({ name, price }: { name: string; price: number }) {
+  const formatted = useNumberFieldFormat(price, {
+    locale: "en-US",
+    formatOptions: { style: "currency", currency: "USD" },
+  });
+
+  return (
+    <tr>
+      <td>{name}</td>
+      <td style={{ textAlign: "right", fontVariantNumeric: "tabular-nums" }}>
+        {formatted}
+      </td>
+    </tr>
+  );
+}
+```
+
+## vs NumberField.Formatted
+
+| | `useNumberFieldFormat` | `NumberField.Formatted` |
+|---|---|---|
+| Use case | Any component, standalone display | Inside a `NumberField.Root` |
+| Requires state | No | Yes (reads from context) |
+| Reflects user edits | No | Yes (live updates with input) |

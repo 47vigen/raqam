@@ -1,25 +1,63 @@
 import { defineConfig } from "tsup";
+import { readFileSync, writeFileSync } from "fs";
+
+/** Prepend "use client" to client-facing bundles after build */
+async function prependUseClient() {
+  const files = [
+    "dist/index.js",
+    "dist/index.cjs",
+    "dist/react.js",
+    "dist/react.cjs",
+  ];
+  for (const file of files) {
+    try {
+      const content = readFileSync(file, "utf-8");
+      if (!content.startsWith('"use client"')) {
+        writeFileSync(file, '"use client";\n' + content);
+      }
+    } catch {
+      // File may not exist in a partial build
+    }
+  }
+}
 
 export default defineConfig([
-  // Main entries: index, core, react
+  // Core: server-safe, no React, no "use client" banner
   {
     entry: {
-      index: "src/index.ts",
       core: "src/core/index.ts",
-      react: "src/react/index.ts",
     },
     format: ["cjs", "esm"],
     dts: true,
     clean: true,
     sourcemap: true,
     external: ["react", "react-dom"],
-    banner: { js: '"use client";' },
     outExtension: ({ format }) => ({
       js: format === "cjs" ? ".cjs" : ".js",
     }),
     treeshake: true,
     splitting: false,
     minify: true,
+  },
+  // React + index: client-only, gets "use client" prepended via onSuccess
+  {
+    entry: {
+      index: "src/index.ts",
+      react: "src/react/index.ts",
+    },
+    format: ["cjs", "esm"],
+    dts: true,
+    sourcemap: true,
+    external: ["react", "react-dom"],
+    outExtension: ({ format }) => ({
+      js: format === "cjs" ? ".cjs" : ".js",
+    }),
+    treeshake: true,
+    splitting: false,
+    minify: true,
+    async onSuccess() {
+      await prependUseClient();
+    },
   },
   // Locale plugins — separate entries for tree-shaking
   {

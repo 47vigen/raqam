@@ -1,0 +1,161 @@
+---
+title: Persian E-commerce
+description: Building number inputs for Persian-language e-commerce — toman currency, RTL, and native digit support.
+---
+
+import { Aside } from "@astrojs/starlight/components";
+
+This recipe shows how to build a complete Persian-language price input that:
+- Accepts Persian digits (۱۲۳) and converts them automatically
+- Displays the toman suffix (تومان) 
+- Renders correctly in RTL context
+- Formats with Persian grouping separators (٬)
+
+## Setup
+
+```ts
+// app/layout.tsx or main.tsx
+import "numra/locales/fa";  // Register Persian digit block
+```
+
+## Basic toman input
+
+```tsx
+import { NumberField } from "numra";
+
+export function TomanInput() {
+  return (
+    <NumberField.Root
+      locale="fa-IR"
+      suffix=" تومان"
+      defaultValue={0}
+      minValue={0}
+      step={1000}
+      largeStep={10000}
+    >
+      <NumberField.Label>قیمت</NumberField.Label>  {/* "Price" */}
+      <NumberField.Group>
+        <NumberField.Decrement>−</NumberField.Decrement>
+        <NumberField.Input dir="ltr" />  {/* numra sets dir="ltr" internally */}
+        <NumberField.Increment>+</NumberField.Increment>
+      </NumberField.Group>
+    </NumberField.Root>
+  );
+}
+```
+
+Displays: `۱٬۲۳۴ تومان`
+
+## Controlled with formatted display
+
+```tsx
+import { useState } from "react";
+import { NumberField, useNumberFieldFormat } from "numra";
+
+export function ProductPriceEditor() {
+  const [price, setPrice] = useState<number | null>(125000);
+
+  const formatted = useNumberFieldFormat(price, {
+    locale: "fa-IR",
+    formatOptions: {},
+  });
+
+  return (
+    <div dir="rtl" style={{ fontFamily: "Vazirmatn, sans-serif" }}>
+      <NumberField.Root
+        locale="fa-IR"
+        suffix=" تومان"
+        value={price}
+        onChange={setPrice}
+        minValue={1000}
+        step={500}
+      >
+        <NumberField.Label style={{ display: "block", marginBottom: 4 }}>
+          قیمت محصول
+        </NumberField.Label>
+        <NumberField.Group style={{ display: "flex", direction: "ltr" }}>
+          <NumberField.Decrement>−</NumberField.Decrement>
+          <NumberField.Input style={{ flex: 1, textAlign: "right", padding: "6px 10px" }} />
+          <NumberField.Increment>+</NumberField.Increment>
+        </NumberField.Group>
+        <NumberField.ErrorMessage style={{ color: "red", fontSize: 12 }} />
+      </NumberField.Root>
+
+      <p style={{ marginTop: 8, fontSize: 13, color: "#555" }}>
+        قیمت نمایش‌داده‌شده: <strong>{formatted} تومان</strong>
+      </p>
+    </div>
+  );
+}
+```
+
+## Digit input examples
+
+Persian digit normalization is transparent:
+
+| User types | numra stores | Displays |
+|-----------|-------------|---------|
+| `۱۲۳۴` (Persian) | `1234` | `۱٬۲۳۴` |
+| `1234` (ASCII) | `1234` | `۱٬۲۳۴` |
+| Mixed `۱2۳4` | `1234` | `۱٬۲۳۴` |
+
+## IRR currency format
+
+If you want the `ریال` symbol from `Intl.NumberFormat`:
+
+```tsx
+<NumberField.Root
+  locale="fa-IR"
+  formatOptions={{ style: "currency", currency: "IRR" }}
+  defaultValue={0}
+>
+  <NumberField.Input />
+</NumberField.Root>
+// Displays: ۰٫۰۰ ﷼
+```
+
+## Validation for price ranges
+
+```tsx
+<NumberField.Root
+  locale="fa-IR"
+  suffix=" تومان"
+  defaultValue={50000}
+  minValue={10000}
+  maxValue={100000000}
+  step={1000}
+  validate={(v) => {
+    if (v === null) return "قیمت الزامی است";
+    if (v < 10000) return "حداقل قیمت ۱۰٬۰۰۰ تومان است";
+    if (v > 100000000) return "حداکثر قیمت ۱۰۰٬۰۰۰٬۰۰۰ تومان است";
+    return true;
+  }}
+>
+  <NumberField.Label>قیمت</NumberField.Label>
+  <NumberField.Input />
+  <NumberField.ErrorMessage />
+</NumberField.Root>
+```
+
+## SSR with Next.js
+
+For server-side price display in Persian:
+
+```ts
+import { createFormatter } from "numra/server";
+
+const priceFormatter = createFormatter({
+  locale: "fa-IR",
+  suffix: " تومان",
+});
+
+// In a Server Component:
+const displayPrice = priceFormatter.format(125000);
+// "۱۲۵٬۰۰۰ تومان"
+```
+
+<Aside>
+  The `fa-IR` locale uses `٬` (Arabic thousands separator, U+066C) and `٫`
+  (Arabic decimal separator, U+066B) — different from the ASCII `,` and `.`.
+  numra extracts these from `Intl.NumberFormat` automatically.
+</Aside>

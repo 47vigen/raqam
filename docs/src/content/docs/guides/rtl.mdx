@@ -1,0 +1,120 @@
+---
+title: RTL Support
+description: How numra renders right-to-left number inputs for Arabic, Persian, Hebrew, and Urdu.
+---
+
+import { Aside } from "@astrojs/starlight/components";
+
+RTL (right-to-left) number inputs have a subtle rendering challenge: the
+**numbers themselves are always left-to-right** (digits flow 0→9 regardless of
+script), but the **surrounding text and layout** flows right-to-left.
+
+numra handles this automatically for all RTL locales.
+
+## Auto-detection
+
+numra detects RTL locales via `Intl.NumberFormat.resolvedOptions().locale`:
+
+```ts
+// Detected as RTL:
+"ar", "ar-EG", "ar-SA", "ar-MA"   // Arabic
+"fa", "fa-IR", "fa-AF"            // Persian
+"he", "he-IL"                     // Hebrew
+"ur", "ur-PK"                     // Urdu
+```
+
+No configuration needed. Import the locale, set the `locale` prop, and the
+correct styles are applied automatically.
+
+## What gets applied
+
+For RTL locales, numra applies two CSS properties to the input element:
+
+```css
+direction: ltr;       /* numbers flow left-to-right */
+text-align: right;    /* text is visually right-aligned */
+unicode-bidi: embed;  /* correct BiDi embedding for currency */
+```
+
+This ensures:
+- Typing `۱`, `۲`, `۳` inserts digits correctly from left to right
+- The cursor stays in the right place
+- Currency symbols (like `﷼` or `$`) appear on the correct side
+
+## Data attribute for CSS
+
+The input element receives `data-rtl=""` when the locale is RTL. Use this
+for additional CSS customization:
+
+```css
+input[data-rtl] {
+  /* extra RTL-specific styles */
+  padding-inline-end: 12px;
+}
+```
+
+## Persian example
+
+```tsx
+import "numra/locales/fa";
+import { NumberField } from "numra";
+
+<NumberField.Root
+  locale="fa-IR"
+  formatOptions={{ style: "currency", currency: "IRR" }}
+  defaultValue={1234567}
+>
+  <NumberField.Label>مبلغ</NumberField.Label>  {/* "Amount" in Persian */}
+  <NumberField.Group>
+    <NumberField.Decrement>−</NumberField.Decrement>
+    <NumberField.Input />
+    <NumberField.Increment>+</NumberField.Increment>
+  </NumberField.Group>
+</NumberField.Root>
+```
+
+The input accepts both Persian digits (۱۲۳) and ASCII digits (123),
+normalizing them to the same value internally.
+
+## Arabic example
+
+```tsx
+import "numra/locales/ar";
+import { NumberField } from "numra";
+
+<NumberField.Root
+  locale="ar-EG"
+  formatOptions={{ style: "currency", currency: "EGP" }}
+  defaultValue={9999}
+>
+  <NumberField.Input />
+</NumberField.Root>
+```
+
+Formatted value: `٩٬٩٩٩٫٠٠ ج.م.‏`
+
+## RTL layout considerations
+
+When embedding a number field in a right-to-left page, wrap the field in a
+container with `dir="rtl"`:
+
+```html
+<div dir="rtl">
+  <!-- numra handles the input direction internally -->
+  <NumberField.Root locale="fa-IR" ...>
+    ...
+  </NumberField.Root>
+</div>
+```
+
+<Aside type="caution">
+  Don't set `dir="rtl"` on the `<input>` element itself — numra manages
+  `direction: ltr` on the input to keep digit order correct.
+</Aside>
+
+## Keyboard input
+
+All keyboard shortcuts work correctly in RTL mode:
+- ↑/↓ increment/decrement
+- Backspace over grouping separators (e.g. `٬`) skips them correctly
+- Home/End jump to `minValue`/`maxValue`
