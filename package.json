@@ -1,6 +1,6 @@
 {
   "name": "numra",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "The definitive React number input: live formatting, full i18n, headless, accessible",
   "type": "module",
   "sideEffects": false,
@@ -23,10 +23,18 @@
   },
   "typesVersions": {
     "*": {
-      "core": ["./dist/core.d.ts"],
-      "react": ["./dist/react.d.ts"],
-      "locales/*": ["./dist/locales/*.d.ts"],
-      "server": ["./dist/core.d.ts"]
+      "core": [
+        "./dist/core.d.ts"
+      ],
+      "react": [
+        "./dist/react.d.ts"
+      ],
+      "locales/*": [
+        "./dist/locales/*.d.ts"
+      ],
+      "server": [
+        "./dist/core.d.ts"
+      ]
     }
   },
   "exports": {

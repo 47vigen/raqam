@@ -1,5 +1,18 @@
 # numra Changelog
 
+## 0.2.0
+
+### Minor Changes
+
+- d1c28e3: Phase 5 — Polish and release:
+
+  - **Bundle optimization**: `numra/core` reduced to < 2 KB gzipped; removed `isNonLatinDigit` from core exports (still available via direct `numra/core/normalizer` import in tests); split tsup config so `numra/core` (the server-safe entry) does not receive a `"use client"` banner
+  - **`"use client"` directive**: Fixed — now correctly prepended to `dist/index.js`, `dist/index.cjs`, `dist/react.js`, `dist/react.cjs` via post-build step (esbuild 0.25+ strips source-level directives from bundled output)
+  - **Storybook**: Added `preview.ts` with `layout: "centered"`, table-of-contents, and control matchers; new `HookAPI.stories.tsx` demonstrating `useNumberFieldState` + `useNumberField` hook pair directly
+  - **react-hook-form integration**: Upgraded `Validation.stories.tsx` to use real `react-hook-form` `Controller` pattern (was previously simulated); added `react-hook-form` as devDependency
+  - **Documentation site**: Complete Starlight docs in `docs/` covering Getting Started, full API reference (useNumberFieldState, useNumberField, NumberField components, useNumberFieldFormat, presets), guides (Locales & i18n, RTL, Next.js App Router, Accessibility), and recipes (react-hook-form, Formik, Tailwind CSS, shadcn/ui, Financial App, Persian E-commerce)
+  - **Package scripts**: Added `docs:dev`, `docs:build`, `release:beta`
+
 ## 0.1.0-beta.1 (upcoming)
 
 ### New package
@@ -29,7 +42,7 @@
 
 - `NumberField.Root` — context provider with full state wiring
 - `NumberField.Input` — ARIA spinbutton text input with live formatting
-- `NumberField.Label` — auto-wired `<label>` 
+- `NumberField.Label` — auto-wired `<label>`
 - `NumberField.Group` — `<div role="group">` wrapper
 - `NumberField.Increment` / `NumberField.Decrement` — stepper buttons with press-and-hold
 - `NumberField.ScrubArea` / `NumberField.ScrubAreaCursor` — Pointer Lock drag interface
@@ -51,7 +64,7 @@
 - **Min/max/step constraints** with `clampBehavior: "blur" | "strict" | "none"`
 - **Prefix/suffix** support (e.g. `prefix="$"`, `suffix=" kg"`)
 - **Smart paste** — strips currency symbols, normalizes non-Latin digits, falls back gracefully
-- **Copy behavior** — `"formatted" | "raw" | "number"` 
+- **Copy behavior** — `"formatted" | "raw" | "number"`
 - **IME composition** handling (CJK input suspended during composition)
 - **Mouse wheel** increment/decrement (non-passive event listener)
 - **RTL support** — auto-detected, `direction: ltr; text-align: right` applied
@@ -66,11 +79,11 @@
 
 #### Bundle sizes
 
-| Entry | Gzipped |
-|-------|---------|
-| `numra/core` | < 2 KB |
-| `numra` | < 9 KB |
-| `numra/react` | < 8 KB |
+| Entry              | Gzipped  |
+| ------------------ | -------- |
+| `numra/core`       | < 2 KB   |
+| `numra`            | < 9 KB   |
+| `numra/react`      | < 8 KB   |
 | `numra/locales/fa` | < 0.3 KB |
 
 #### Documentation
