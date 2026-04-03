@@ -1,0 +1,148 @@
+---
+title: useNumberFieldState
+description: State management hook for number fields — use when building the Hook API pattern.
+---
+
+import { Aside } from "@astrojs/starlight/components";
+
+`useNumberFieldState` manages all state for a number field: the formatted
+display string, the underlying numeric value, validation, focus, and scrubbing.
+
+Pair it with [`useNumberField`](/api/use-number-field) to get ARIA prop objects
+for your elements.
+
+## Import
+
+```ts
+import { useNumberFieldState } from "numra";
+// or
+import { useNumberFieldState } from "numra/react";
+```
+
+## Signature
+
+```ts
+function useNumberFieldState(
+  options: UseNumberFieldStateOptions
+): NumberFieldState;
+```
+
+## Options
+
+### Core
+
+| Prop | Type | Default | Description |
+|------|------|---------|-------------|
+| `locale` | `string` | `"en-US"` | BCP 47 locale tag. Drives `Intl.NumberFormat`. |
+| `formatOptions` | `Intl.NumberFormatOptions` | `{}` | Passed to `Intl.NumberFormat`. |
+| `value` | `number \| null` | — | Controlled value. |
+| `defaultValue` | `number \| null` | `null` | Uncontrolled initial value. |
+| `onChange` | `(value: number \| null) => void` | — | Called on commit (blur, Enter, stepper). |
+
+### Constraints
+
+| Prop | Type | Default | Description |
+|------|------|---------|-------------|
+| `minValue` | `number` | — | Minimum allowed value. |
+| `maxValue` | `number` | — | Maximum allowed value. |
+| `step` | `number` | `1` | Normal step (↑/↓ arrow keys). |
+| `largeStep` | `number` | `10` | Large step (Shift+↑/↓, Page Up/Down). |
+| `smallStep` | `number` | `0.1` | Small step (Ctrl/Cmd+↑/↓). |
+| `clampBehavior` | `"blur" \| "strict" \| "none"` | `"blur"` | When to clamp to min/max. |
+| `allowOutOfRange` | `boolean` | `false` | Skip clamping; sets `aria-invalid` when out of range. |
+| `allowNegative` | `boolean` | `true` | Allow negative values. |
+| `allowDecimal` | `boolean` | `true` | Allow decimal input. |
+
+### Formatting
+
+| Prop | Type | Default | Description |
+|------|------|---------|-------------|
+| `maximumFractionDigits` | `number` | — | Override `formatOptions.maximumFractionDigits`. |
+| `minimumFractionDigits` | `number` | — | Override `formatOptions.minimumFractionDigits`. |
+| `fixedDecimalScale` | `boolean` | `false` | Always show `maximumFractionDigits` decimal places. |
+| `prefix` | `string` | — | Prepend a string (e.g. `"$"`). |
+| `suffix` | `string` | — | Append a string (e.g. `" kg"`). |
+| `liveFormat` | `boolean` | `true` | Format on every keystroke (disable for IME locales). |
+
+### Validation
+
+| Prop | Type | Default | Description |
+|------|------|---------|-------------|
+| `validate` | `(v: number \| null) => boolean \| string \| null` | — | Custom validator. Return `true` for valid, `string` for error message. |
+
+### Escape hatches
+
+| Prop | Type | Default | Description |
+|------|------|---------|-------------|
+| `formatValue` | `(v: number) => string` | — | Replace the default formatter. |
+| `parseValue` | `(s: string) => { value: number \| null; isIntermediate: boolean }` | — | Replace the default parser. |
+| `onRawChange` | `(raw: string \| null) => void` | — | Called with the exact string the user typed (for arbitrary precision). |
+
+### Interaction
+
+| Prop | Type | Default | Description |
+|------|------|---------|-------------|
+| `stepHoldDelay` | `number` | `400` | Milliseconds before press-and-hold acceleration starts. |
+| `stepHoldInterval` | `number` | `200` | Milliseconds between accelerated steps. |
+| `disabled` | `boolean` | `false` | Disable all interaction. |
+| `readOnly` | `boolean` | `false` | Allow focus, disallow editing. |
+
+## Return value — `NumberFieldState`
+
+| Property | Type | Description |
+|----------|------|-------------|
+| `inputValue` | `string` | The formatted string currently shown in the input. |
+| `numberValue` | `number \| null` | The parsed numeric value (`null` when empty/invalid). |
+| `rawValue` | `string \| null` | The exact string the user typed (for precision use cases). |
+| `isFocused` | `boolean` | Whether the input is focused. |
+| `isScrubbing` | `boolean` | Whether a scrub drag is in progress. |
+| `canIncrement` | `boolean` | False when at `maxValue` or `disabled`. |
+| `canDecrement` | `boolean` | False when at `minValue` or `disabled`. |
+| `validationState` | `"valid" \| "invalid"` | Result of the `validate` callback plus range checks. |
+| `validationError` | `string \| null` | Error message from `validate`, or `null`. |
+| `increment()` | `() => void` | Step up by `step`. |
+| `decrement()` | `() => void` | Step down by `step`. |
+| `incrementToMax()` | `() => void` | Jump to `maxValue`. |
+| `decrementToMin()` | `() => void` | Jump to `minValue`. |
+| `setInputValue(s)` | `(s: string) => void` | Directly set the display string. |
+| `setNumberValue(n)` | `(n: number \| null) => void` | Directly set the numeric value. |
+| `commit()` | `() => void` | Trigger blur-time formatting and clamping. |
+| `setIsFocused(b)` | `(b: boolean) => void` | Sync focus state (called by `useNumberField`). |
+| `setIsScrubbing(b)` | `(b: boolean) => void` | Sync scrub state (called by `useScrubArea`). |
+
+## Example
+
+```tsx
+import { useRef } from "react";
+import { useNumberFieldState, useNumberField } from "numra";
+
+function MyInput() {
+  const ref = useRef<HTMLInputElement>(null);
+
+  const state = useNumberFieldState({
+    locale: "en-US",
+    formatOptions: { style: "currency", currency: "USD" },
+    minValue: 0,
+    onChange: (value) => console.log("committed:", value),
+  });
+
+  const { labelProps, inputProps } = useNumberField(
+    { locale: "en-US", formatOptions: { style: "currency", currency: "USD" } },
+    state,
+    ref,
+  );
+
+  return (
+    <>
+      <label {...labelProps}>Amount</label>
+      <input {...inputProps} ref={ref} />
+      <p>Current: {state.numberValue}</p>
+    </>
+  );
+}
+```
+
+<Aside>
+  `useNumberFieldState` does NOT read from or write to the DOM. It's a pure
+  React state machine. Pair it with `useNumberField` for DOM integration.
+</Aside>

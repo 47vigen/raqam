@@ -1,0 +1,120 @@
+---
+title: Locales & i18n
+description: Using numra with non-Latin digit systems — Persian, Arabic, Bengali, Hindi, Thai.
+---
+
+import { Aside, Tabs, TabItem } from "@astrojs/starlight/components";
+
+numra uses `Intl.NumberFormat` for all formatting and parsing. You never
+hardcode separators — they're extracted dynamically from the browser's
+internationalization engine.
+
+## Basic locale switching
+
+Pass any BCP 47 locale tag to the `locale` prop:
+
+```tsx
+// German: 1.234,56
+<NumberField.Root locale="de-DE" formatOptions={{ style: "currency", currency: "EUR" }} />
+
+// French: 1 234,56 €
+<NumberField.Root locale="fr-FR" formatOptions={{ style: "currency", currency: "EUR" }} />
+
+// Japanese: ¥1,234
+<NumberField.Root locale="ja-JP" formatOptions={{ style: "currency", currency: "JPY" }} />
+```
+
+Separators, currency symbols, minus signs, and digit systems are all resolved
+automatically — no configuration needed.
+
+## Non-Latin digit systems
+
+Five locale plugins add support for writing systems that use non-ASCII digits:
+
+| Plugin | Script | Digits | BCP 47 tags |
+|--------|--------|--------|-------------|
+| `numra/locales/fa` | Persian (Extended Arabic-Indic) | ۰۱۲۳۴۵۶۷۸۹ | `fa`, `fa-IR`, `fa-AF` |
+| `numra/locales/ar` | Arabic-Indic | ٠١٢٣٤٥٦٧٨٩ | `ar`, `ar-EG`, `ar-SA`, … |
+| `numra/locales/hi` | Devanagari | ०१२३४५६७८९ | `hi`, `hi-IN`, `mr`, `ne` |
+| `numra/locales/bn` | Bengali | ০১২৩৪৫৬৭৮৯ | `bn`, `bn-BD`, `bn-IN` |
+| `numra/locales/th` | Thai | ๐๑๒๓๔๕๖๗๘๙ | `th`, `th-TH` |
+
+### Installing a plugin
+
+Import the locale plugin once, anywhere in your app (it runs as a side effect):
+
+```ts
+// app/layout.tsx  or  src/main.tsx
+import "numra/locales/fa";   // adds Persian digit support
+import "numra/locales/ar";   // adds Arabic-Indic digit support
+```
+
+Then use the locale normally:
+
+```tsx
+<NumberField.Root locale="fa-IR" />
+```
+
+Without the plugin, Persian `۱۲۳` typed by the user won't be normalized. With
+the plugin, `۱۲۳` is accepted and internally treated as `123`.
+
+### All plugins at once
+
+```ts
+import "numra/locales";   // imports fa, ar, hi, bn, th
+```
+
+Each plugin is only ~100 bytes gzipped.
+
+## Lakh/crore grouping
+
+South Asian locales (`hi-IN`, `bn-BD`, `mr-IN`) use a different grouping
+pattern than Western locales (lakhs and crores):
+
+```
+en-US:  10,000,000  (millions)
+hi-IN:  1,00,00,000 (crores)
+```
+
+numra handles this automatically via `Intl.NumberFormat`.
+
+## RTL locales
+
+Arabic, Persian, Hebrew, and Urdu are right-to-left. numra automatically
+detects RTL locales and applies the correct rendering. See the
+[RTL guide](/guides/rtl) for details.
+
+## Custom digit blocks
+
+If you need a digit system not covered by the built-in plugins, register it:
+
+```ts
+import { registerLocale } from "numra/core";
+
+// Mongolian digits: ᠐᠑᠒᠓᠔᠕᠖᠗᠘᠙ (U+1810–U+1819)
+registerLocale({
+  digitBlocks: [[0x1810, 0x1819]],
+});
+```
+
+<Aside>
+  Locale plugins are tree-shakeable. Only the plugins you import are included
+  in your bundle.
+</Aside>
+
+## Supported locale examples
+
+```tsx
+const LOCALES = [
+  { locale: "en-US", label: "English (US)",    formatOptions: { style: "currency", currency: "USD" } },
+  { locale: "de-DE", label: "German",           formatOptions: { style: "currency", currency: "EUR" } },
+  { locale: "fr-FR", label: "French",           formatOptions: { style: "currency", currency: "EUR" } },
+  { locale: "fa-IR", label: "Persian (Iran)",   formatOptions: { style: "currency", currency: "IRR" } },
+  { locale: "ar-EG", label: "Arabic (Egypt)",   formatOptions: { style: "currency", currency: "EGP" } },
+  { locale: "hi-IN", label: "Hindi (India)",    formatOptions: { style: "currency", currency: "INR" } },
+  { locale: "bn-BD", label: "Bengali (Bangladesh)", formatOptions: { style: "currency", currency: "BDT" } },
+  { locale: "th-TH", label: "Thai",             formatOptions: { style: "currency", currency: "THB" } },
+  { locale: "ja-JP", label: "Japanese",         formatOptions: { style: "currency", currency: "JPY" } },
+  { locale: "zh-CN", label: "Chinese (Simplified)", formatOptions: { style: "currency", currency: "CNY" } },
+];
+```

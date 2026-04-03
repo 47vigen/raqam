@@ -1,0 +1,133 @@
+---
+title: Tailwind CSS
+description: Styling numra with Tailwind CSS — data attributes, focus rings, and dark mode.
+---
+
+numra ships unstyled. Tailwind classes work naturally on all components.
+Use `data-*` state attributes from the root element for conditional styling.
+
+## Basic field
+
+```tsx
+import { NumberField } from "numra";
+
+export function PriceInput() {
+  return (
+    <NumberField.Root locale="en-US" defaultValue={0} className="flex flex-col gap-1.5">
+      <NumberField.Label className="text-sm font-medium text-gray-700">
+        Price
+      </NumberField.Label>
+
+      <NumberField.Group className="flex rounded-md border border-gray-300 overflow-hidden focus-within:ring-2 focus-within:ring-blue-500 focus-within:border-blue-500">
+        <NumberField.Decrement className="px-3 py-2 bg-gray-50 border-r border-gray-300 hover:bg-gray-100 text-gray-500 select-none">
+          −
+        </NumberField.Decrement>
+
+        <NumberField.Input className="flex-1 px-3 py-2 text-sm outline-none bg-white min-w-0" />
+
+        <NumberField.Increment className="px-3 py-2 bg-gray-50 border-l border-gray-300 hover:bg-gray-100 text-gray-500 select-none">
+          +
+        </NumberField.Increment>
+      </NumberField.Group>
+    </NumberField.Root>
+  );
+}
+```
+
+## data-* attribute styling
+
+numra sets data attributes on the root element. Use Tailwind's `data-*` variant
+for state-based styling:
+
+```tsx
+<NumberField.Root
+  locale="en-US"
+  className="flex flex-col gap-1.5 group"
+>
+  <NumberField.Label className="text-sm font-medium text-gray-700 group-data-[disabled]:opacity-50">
+    Amount
+  </NumberField.Label>
+
+  <NumberField.Group
+    className={[
+      "flex rounded-md border overflow-hidden transition-shadow",
+      "border-gray-300",
+      "group-data-[focused]:ring-2 group-data-[focused]:ring-blue-500 group-data-[focused]:border-blue-500",
+      "group-data-[invalid]:border-red-400 group-data-[invalid]:ring-red-300",
+      "group-data-[disabled]:opacity-50 group-data-[disabled]:cursor-not-allowed",
+    ].join(" ")}
+  >
+    <NumberField.Decrement className="px-3 py-2 bg-gray-50 border-r border-gray-200 hover:bg-gray-100 disabled:opacity-40">
+      −
+    </NumberField.Decrement>
+    <NumberField.Input className="flex-1 px-3 py-2 outline-none bg-transparent" />
+    <NumberField.Increment className="px-3 py-2 bg-gray-50 border-l border-gray-200 hover:bg-gray-100 disabled:opacity-40">
+      +
+    </NumberField.Increment>
+  </NumberField.Group>
+
+  <NumberField.ErrorMessage className="text-xs text-red-600" />
+</NumberField.Root>
+```
+
+Available data attributes on the root:
+
+| Attribute | When set |
+|-----------|----------|
+| `data-focused` | Input is focused |
+| `data-invalid` | Value is invalid |
+| `data-disabled` | `disabled={true}` |
+| `data-readonly` | `readOnly={true}` |
+
+## Dark mode
+
+```tsx
+<NumberField.Group
+  className={[
+    "flex rounded-md border overflow-hidden",
+    "border-gray-300 dark:border-gray-600",
+    "bg-white dark:bg-gray-800",
+    "focus-within:ring-2 focus-within:ring-blue-500",
+  ].join(" ")}
+>
+  <NumberField.Decrement className="px-3 py-2 bg-gray-50 dark:bg-gray-700 border-r border-gray-200 dark:border-gray-600 text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-600">
+    −
+  </NumberField.Decrement>
+  <NumberField.Input className="flex-1 px-3 py-2 text-gray-900 dark:text-gray-100 bg-transparent outline-none" />
+  <NumberField.Increment className="px-3 py-2 bg-gray-50 dark:bg-gray-700 border-l border-gray-200 dark:border-gray-600 text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-600">
+    +
+  </NumberField.Increment>
+</NumberField.Group>
+```
+
+## Compact input (no steppers)
+
+```tsx
+<NumberField.Root locale="en-US" className="flex flex-col gap-1">
+  <NumberField.Label className="text-xs font-medium text-gray-500 uppercase tracking-wide">
+    Quantity
+  </NumberField.Label>
+  <NumberField.Input className="w-24 px-2 py-1 text-sm border border-gray-300 rounded focus:outline-none focus:ring-1 focus:ring-blue-500" />
+</NumberField.Root>
+```
+
+## With validation styles
+
+```tsx
+<NumberField.Root
+  locale="en-US"
+  validate={(v) => v !== null && v > 0 ? true : "Must be positive"}
+  className="flex flex-col gap-1.5"
+>
+  <NumberField.Label className="text-sm font-medium">Price</NumberField.Label>
+  <NumberField.Input
+    className={[
+      "px-3 py-2 border rounded-md text-sm outline-none",
+      "border-gray-300 focus:ring-2 focus:ring-blue-400",
+      // Tailwind can't dynamically check data-invalid on the input,
+      // so use the validate prop + ErrorMessage instead:
+    ].join(" ")}
+  />
+  <NumberField.ErrorMessage className="text-xs text-red-600" />
+</NumberField.Root>
+```

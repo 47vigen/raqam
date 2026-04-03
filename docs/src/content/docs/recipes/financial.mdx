@@ -1,0 +1,165 @@
+---
+title: Financial App
+description: Accounting format, fixed decimal scale, arbitrary precision, and currency conversion.
+---
+
+## Accounting format
+
+Show negative balances as `(1,234.56)` instead of `-$1,234.56` — standard in
+double-entry bookkeeping:
+
+```tsx
+import { presets } from "numra";
+import { NumberField } from "numra";
+
+<NumberField.Root
+  locale="en-US"
+  formatOptions={presets.accounting("USD")}
+  defaultValue={-1234.56}
+  allowNegative
+>
+  <NumberField.Label>Account balance</NumberField.Label>
+  <NumberField.Input />
+</NumberField.Root>
+// Displays: (1,234.56) ← negative shown as parentheses
+// Displays: 1,234.56  ← positive shown normally
+```
+
+numra automatically parses `(1,234.56)` back to `-1234.56` when the user
+pastes accounting-formatted values.
+
+## Fixed decimal scale
+
+For monetary inputs, always show exactly two decimal places:
+
+```tsx
+<NumberField.Root
+  locale="en-US"
+  formatOptions={{ style: "currency", currency: "USD" }}
+  fixedDecimalScale
+  maximumFractionDigits={2}
+  defaultValue={0}
+>
+  <NumberField.Input />
+</NumberField.Root>
+// Always shows: $0.00, $1.23, $1,234.56
+```
+
+## Arbitrary precision (crypto / scientific)
+
+Use `rawValue` + `onRawChange` to capture the exact string the user typed,
+bypassing JavaScript floating-point limitations:
+
+```tsx
+import { useState } from "react";
+import { NumberField } from "numra";
+
+function CryptoInput() {
+  const [raw, setRaw] = useState<string | null>(null);
+
+  return (
+    <NumberField.Root
+      locale="en-US"
+      defaultValue={0}
+      formatValue={(v) => v.toFixed(8)}
+      parseValue={(s) => ({
+        value: parseFloat(s),
+        isIntermediate: s.endsWith(".") || /\.\d*0+$/.test(s),
+      })}
+      onRawChange={setRaw}
+    >
+      <NumberField.Label>BTC amount</NumberField.Label>
+      <NumberField.Input style={{ fontFamily: "monospace" }} />
+      {raw && <p>Raw: {raw}</p>}
+    </NumberField.Root>
+  );
+}
+// Shows: 3.14159265 (8 decimal places)
+// raw = "3.14159265" (exact string for big-decimal libraries)
+```
+
+Pass `raw` to a BigDecimal library (decimal.js, big.js) for precise arithmetic.
+
+## Currency conversion display
+
+Show the converted value in real time using `NumberField.Formatted` + a read-only instance:
+
+```tsx
+import { useState } from "react";
+import { NumberField, useNumberFieldFormat } from "numra";
+
+const USD_TO_EUR = 0.92;
+
+function CurrencyConverter() {
+  const [usd, setUsd] = useState<number | null>(100);
+  const eur = usd !== null ? usd * USD_TO_EUR : null;
+
+  const eurFormatted = useNumberFieldFormat(eur ?? 0, {
+    locale: "de-DE",
+    formatOptions: { style: "currency", currency: "EUR" },
+  });
+
+  return (
+    <div>
+      <NumberField.Root
+        locale="en-US"
+        formatOptions={{ style: "currency", currency: "USD" }}
+        value={usd}
+        onChange={setUsd}
+        minValue={0}
+      >
+        <NumberField.Label>USD amount</NumberField.Label>
+        <NumberField.Input />
+      </NumberField.Root>
+
+      <p>≈ {eurFormatted}</p>
+    </div>
+  );
+}
+```
+
+## Validated budget range
+
+```tsx
+<NumberField.Root
+  locale="en-US"
+  formatOptions={{ style: "currency", currency: "USD" }}
+  defaultValue={5000}
+  minValue={1000}
+  maxValue={100000}
+  step={100}
+  largeStep={1000}
+  validate={(v) => {
+    if (v === null) return "Budget is required";
+    if (v < 1000) return "Minimum budget is $1,000";
+    if (v > 100000) return "Maximum budget is $100,000";
+    if (v % 100 !== 0) return "Budget must be in $100 increments";
+    return true;
+  }}
+>
+  <NumberField.Label>Annual budget</NumberField.Label>
+  <NumberField.Group>
+    <NumberField.Decrement>−$100</NumberField.Decrement>
+    <NumberField.Input />
+    <NumberField.Increment>+$100</NumberField.Increment>
+  </NumberField.Group>
+  <NumberField.ErrorMessage />
+</NumberField.Root>
+```
+
+## Change reason tracking
+
+Know exactly how the user changed the value — useful for analytics:
+
+```tsx
+<NumberField.Root
+  locale="en-US"
+  defaultValue={0}
+  onChange={(value, reason) => {
+    analytics.track("number_changed", { value, reason });
+    // reason: "keyboard" | "wheel" | "paste" | "blur" | "increment" | "decrement" | "scrub"
+  }}
+>
+  <NumberField.Input />
+</NumberField.Root>
+```

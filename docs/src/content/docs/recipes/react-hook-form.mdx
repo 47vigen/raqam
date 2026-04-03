@@ -1,0 +1,183 @@
+---
+title: react-hook-form
+description: Integrating numra with react-hook-form using the Controller pattern.
+---
+
+import { Aside } from "@astrojs/starlight/components";
+
+numra works naturally with react-hook-form via the `Controller` component.
+The key is: numra is `value`/`onChange` controlled, and `Controller` supplies
+exactly those.
+
+## Installation
+
+```sh
+npm install react-hook-form
+```
+
+## Basic Controller integration
+
+```tsx
+import { useForm, Controller } from "react-hook-form";
+import { NumberField } from "numra";
+
+type FormValues = {
+  price: number | null;
+};
+
+export function PriceForm() {
+  const {
+    control,
+    handleSubmit,
+    formState: { errors },
+  } = useForm<FormValues>({ defaultValues: { price: null } });
+
+  return (
+    <form onSubmit={handleSubmit((data) => console.log(data))}>
+      <Controller
+        name="price"
+        control={control}
+        rules={{
+          required: "Price is required",
+          min: { value: 0.01, message: "Must be at least $0.01" },
+          max: { value: 999999, message: "Cannot exceed $999,999" },
+        }}
+        render={({ field }) => (
+          <NumberField.Root
+            locale="en-US"
+            formatOptions={{ style: "currency", currency: "USD" }}
+            value={field.value}
+            onChange={field.onChange}
+            onBlur={field.onBlur}
+          >
+            <NumberField.Label>Price</NumberField.Label>
+            <NumberField.Group>
+              <NumberField.Decrement>−</NumberField.Decrement>
+              <NumberField.Input />
+              <NumberField.Increment>+</NumberField.Increment>
+            </NumberField.Group>
+            {errors.price && (
+              <p style={{ color: "red", fontSize: 12 }}>
+                {errors.price.message}
+              </p>
+            )}
+          </NumberField.Root>
+        )}
+      />
+
+      <button type="submit">Submit</button>
+    </form>
+  );
+}
+```
+
+## Using numra's built-in validate prop
+
+For simple validation, use numra's `validate` prop directly alongside
+react-hook-form — this updates `aria-invalid` and renders `NumberField.ErrorMessage`:
+
+```tsx
+<Controller
+  name="amount"
+  control={control}
+  rules={{ required: true }}
+  render={({ field, fieldState }) => (
+    <NumberField.Root
+      locale="en-US"
+      value={field.value}
+      onChange={field.onChange}
+      onBlur={field.onBlur}
+      validate={(v) => {
+        if (v === null) return "Required";
+        if (v < 1) return "Min $1";
+        return true;
+      }}
+    >
+      <NumberField.Label>Amount</NumberField.Label>
+      <NumberField.Input />
+      <NumberField.ErrorMessage />
+    </NumberField.Root>
+  )}
+/>
+```
+
+## Custom validation with Zod
+
+```tsx
+import { zodResolver } from "@hookform/resolvers/zod";
+import { z } from "zod";
+
+const schema = z.object({
+  price: z
+    .number({ required_error: "Price is required" })
+    .min(0.01, "Must be positive")
+    .max(999999, "Too large"),
+});
+
+export function PriceForm() {
+  const { control, handleSubmit } = useForm({
+    resolver: zodResolver(schema),
+    defaultValues: { price: 0 },
+  });
+
+  return (
+    <form onSubmit={handleSubmit(console.log)}>
+      <Controller
+        name="price"
+        control={control}
+        render={({ field, fieldState }) => (
+          <NumberField.Root
+            locale="en-US"
+            formatOptions={{ style: "currency", currency: "USD" }}
+            value={field.value}
+            onChange={field.onChange}
+            onBlur={field.onBlur}
+          >
+            <NumberField.Label>Price</NumberField.Label>
+            <NumberField.Input />
+            {fieldState.error && (
+              <p style={{ color: "red" }}>{fieldState.error.message}</p>
+            )}
+          </NumberField.Root>
+        )}
+      />
+      <button type="submit">Save</button>
+    </form>
+  );
+}
+```
+
+## Multiple currency fields
+
+```tsx
+type InvoiceForm = {
+  subtotal: number | null;
+  tax: number | null;
+  discount: number | null;
+};
+
+const currencyField = (name: keyof InvoiceForm, label: string) => (
+  <Controller
+    name={name}
+    control={control}
+    render={({ field }) => (
+      <NumberField.Root
+        locale="en-US"
+        formatOptions={{ style: "currency", currency: "USD" }}
+        value={field.value}
+        onChange={field.onChange}
+        onBlur={field.onBlur}
+        minValue={0}
+      >
+        <NumberField.Label>{label}</NumberField.Label>
+        <NumberField.Input />
+      </NumberField.Root>
+    )}
+  />
+);
+```
+
+<Aside>
+  `onChange` fires with `number | null`. react-hook-form's `rules.required`
+  checks for `null` — this works because `null` is falsy.
+</Aside>

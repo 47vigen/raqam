@@ -1,0 +1,173 @@
+---
+title: Next.js App Router
+description: Using numra with Next.js App Router — client components, Server Components, and edge functions.
+---
+
+import { Aside, Tabs, TabItem } from "@astrojs/starlight/components";
+
+## Client components
+
+numra is a client-side library (it uses React hooks, DOM APIs, and browser
+`Intl`). All components and hooks must run in a Client Component.
+
+```tsx
+// components/price-input.tsx
+"use client";
+
+import { NumberField } from "numra";
+
+export function PriceInput({ value, onChange }: {
+  value: number | null;
+  onChange: (v: number | null) => void;
+}) {
+  return (
+    <NumberField.Root
+      locale="en-US"
+      formatOptions={{ style: "currency", currency: "USD" }}
+      value={value}
+      onChange={onChange}
+    >
+      <NumberField.Label>Price</NumberField.Label>
+      <NumberField.Group>
+        <NumberField.Decrement>−</NumberField.Decrement>
+        <NumberField.Input />
+        <NumberField.Increment>+</NumberField.Increment>
+      </NumberField.Group>
+    </NumberField.Root>
+  );
+}
+```
+
+<Aside>
+  The `numra` package ships with `"use client";` prepended to its bundles.
+  You can import it directly in Client Components without any extra wrapper.
+</Aside>
+
+## Server Components — formatting only
+
+For SSR formatting (price display, report generation, email templates), import
+from `numra/server` — it has **zero React dependency** and runs in any
+server context including Edge Runtime:
+
+```ts
+// app/products/page.tsx  (Server Component)
+import { createFormatter } from "numra/server";
+import { presets } from "numra/server";
+
+const fmt = createFormatter({
+  locale: "en-US",
+  formatOptions: presets.currency("USD"),
+});
+
+export default function ProductsPage() {
+  const price = fmt.format(1234.56);   // "$1,234.56"
+
+  return <div>Price: {price}</div>;
+}
+```
+
+`numra/server` is an alias for `numra/core`. It exports `createFormatter`,
+`createParser`, `normalizeDigits`, `registerLocale`, and `presets`.
+
+## Pattern: Server Component + Client Input
+
+A common pattern: the Server Component renders the page shell and passes
+formatted prices as props, while a nested Client Component handles the editable
+field.
+
+```tsx
+// app/checkout/page.tsx  (Server Component)
+import { createFormatter } from "numra/server";
+import { CheckoutForm } from "./checkout-form";
+
+export default async function CheckoutPage() {
+  const product = await getProduct();
+  const formatter = createFormatter({
+    locale: "en-US",
+    formatOptions: { style: "currency", currency: "USD" },
+  });
+
+  return (
+    <CheckoutForm
+      productName={product.name}
+      defaultPrice={product.price}
+      formattedPrice={formatter.format(product.price)}
+    />
+  );
+}
+```
+
+```tsx
+// app/checkout/checkout-form.tsx  (Client Component)
+"use client";
+
+import { useState } from "react";
+import { NumberField } from "numra";
+
+export function CheckoutForm({
+  productName,
+  defaultPrice,
+  formattedPrice,
+}: {
+  productName: string;
+  defaultPrice: number;
+  formattedPrice: string;
+}) {
+  const [price, setPrice] = useState<number | null>(defaultPrice);
+
+  return (
+    <form>
+      <p>Original price: {formattedPrice}</p>
+      <NumberField.Root
+        locale="en-US"
+        formatOptions={{ style: "currency", currency: "USD" }}
+        value={price}
+        onChange={setPrice}
+      >
+        <NumberField.Label>Custom price</NumberField.Label>
+        <NumberField.Input />
+        <NumberField.HiddenInput name="price" />
+      </NumberField.Root>
+      <button type="submit">Checkout</button>
+    </form>
+  );
+}
+```
+
+## Locale plugins with App Router
+
+Import locale plugins in your root layout (Server Component imports are fine
+for side-effect-only modules):
+
+```tsx
+// app/layout.tsx
+import "numra/locales/fa";
+import "numra/locales/ar";
+
+export default function RootLayout({ children }: { children: React.ReactNode }) {
+  return <html><body>{children}</body></html>;
+}
+```
+
+<Aside type="tip">
+  Locale plugins register digit blocks in a module-level array. In Next.js,
+  this happens once per server instance and persists across requests.
+</Aside>
+
+## Edge Runtime
+
+`numra/server` (`numra/core`) is Edge Runtime compatible — it uses only
+`Intl.NumberFormat` which is available in all modern edge environments
+(Vercel Edge, Cloudflare Workers, Deno Deploy).
+
+```ts
+// edge-function.ts
+import { createFormatter } from "numra/server";
+
+export const runtime = "edge";
+
+export default function handler() {
+  const fmt = createFormatter({ locale: "en-US" });
+  return new Response(fmt.format(42));
+}
+```

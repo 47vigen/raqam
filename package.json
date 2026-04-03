@@ -78,7 +78,10 @@
     "publint": "publint",
     "test:e2e": "playwright test -c playwright-ct.config.ts",
     "test:e2e:ui": "playwright test -c playwright-ct.config.ts --ui",
-    "test:e2e:debug": "playwright test -c playwright-ct.config.ts --headed --project=chromium"
+    "test:e2e:debug": "playwright test -c playwright-ct.config.ts --headed --project=chromium",
+    "docs:dev": "cd docs && astro dev",
+    "docs:build": "cd docs && astro build",
+    "release:beta": "changeset version --snapshot beta && changeset publish --tag beta"
   },
   "keywords": [
     "react",
@@ -116,6 +119,7 @@
     "publint": "^0.2.12",
     "react": "^19.1.0",
     "react-dom": "^19.1.0",
+    "react-hook-form": "^7.72.1",
     "size-limit": "^11.1.6",
     "storybook": "^10.3.4",
     "tsup": "^8.4.0",

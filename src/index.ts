@@ -1,5 +1,3 @@
-"use client";
-
 // ── Hooks ─────────────────────────────────────────────────────────────────────
 export { useNumberFieldState } from "./react/useNumberFieldState.js";
 export { useNumberField } from "./react/useNumberField.js";
@@ -23,7 +21,6 @@ export { createFormatter } from "./core/formatter.js";
 export { createParser } from "./core/parser.js";
 export {
   normalizeDigits,
-  isNonLatinDigit,
   registerLocale,
 } from "./core/normalizer.js";
 export { getCaretBoundary, computeNewCursorPosition } from "./core/cursor.js";

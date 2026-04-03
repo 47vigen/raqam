@@ -1,0 +1,132 @@
+---
+title: Accessibility
+description: WAI-ARIA spinbutton role, keyboard navigation, and screen reader behaviour.
+---
+
+numra implements the WAI-ARIA
+[`spinbutton`](https://www.w3.org/WAI/ARIA/apg/patterns/spinbutton/) pattern.
+All ARIA attributes are generated automatically — you don't need to add them
+manually.
+
+## ARIA attributes
+
+### Input element
+
+| Attribute | Value | Notes |
+|-----------|-------|-------|
+| `role` | `"spinbutton"` | Always set |
+| `aria-valuenow` | `numberValue` | Current numeric value |
+| `aria-valuemin` | `minValue` | Only set when `minValue` is provided |
+| `aria-valuemax` | `maxValue` | Only set when `maxValue` is provided |
+| `aria-valuetext` | formatted string | Localized display value for screen readers |
+| `aria-invalid` | `"true"` when invalid | Set by `validate` callback or `allowOutOfRange` |
+| `aria-disabled` | `"true"` when disabled | |
+| `aria-readonly` | `"true"` when readOnly | |
+| `aria-required` | `"true"` when required | Pass `required` prop |
+| `aria-labelledby` | — | Auto-wired from `<NumberField.Label>` |
+| `aria-describedby` | — | Auto-wired from `<NumberField.Description>` |
+| `inputMode` | `"decimal"` | Surfaces the numeric keyboard on mobile |
+| `type` | `"text"` | Always `text` (not `number`) to avoid browser UI conflicts |
+| `autoComplete` | `"off"` | Prevents autocomplete interference |
+
+### Button elements
+
+Increment and decrement buttons receive:
+- `aria-label`: `"Increase value"` / `"Decrease value"` (localizable via prop)
+- `tabIndex={-1}`: Buttons are intentionally outside the Tab order
+- `disabled`: When at `minValue`/`maxValue` or when the field is disabled
+
+## Keyboard navigation
+
+| Key | Action |
+|-----|--------|
+| ↑ | Increment by `step` |
+| ↓ | Decrement by `step` |
+| Shift + ↑ | Increment by `largeStep` (default 10) |
+| Shift + ↓ | Decrement by `largeStep` |
+| Ctrl/Cmd + ↑ | Increment by `smallStep` (default 0.1) |
+| Ctrl/Cmd + ↓ | Decrement by `smallStep` |
+| Page Up | Increment by `largeStep` |
+| Page Down | Decrement by `largeStep` |
+| Home | Jump to `minValue` (if set) |
+| End | Jump to `maxValue` (if set) |
+| Enter | Commit the current value (triggers formatting + clamping) |
+| Tab | Move focus out of the field |
+
+## Focus management
+
+- The **input** is the only focusable element by default
+- Stepper buttons have `tabIndex={-1}` (keyboard-accessible via ↑/↓, not Tab)
+- `data-focused=""` is set on the root element while the input is focused
+- `onFocus`/`onBlur` prop forwarding is supported
+
+## Validation and error messages
+
+Use `aria-errormessage` (via `NumberField.ErrorMessage`) to announce errors:
+
+```tsx
+<NumberField.Root
+  locale="en-US"
+  validate={(v) => v === null ? "Required" : v > 0 ? true : "Must be positive"}
+>
+  <NumberField.Label>Quantity</NumberField.Label>
+  <NumberField.Input />
+  <NumberField.ErrorMessage />
+  {/* Gets role="alert" — announced on change */}
+</NumberField.Root>
+```
+
+`NumberField.ErrorMessage` has `role="alert"` which causes screen readers to
+announce the message immediately when it appears.
+
+## Accessible label patterns
+
+### Visible label (recommended)
+
+```tsx
+<NumberField.Root locale="en-US">
+  <NumberField.Label>Price</NumberField.Label>
+  <NumberField.Input />
+</NumberField.Root>
+```
+
+### aria-label (no visible label)
+
+```tsx
+<NumberField.Root locale="en-US">
+  <NumberField.Input aria-label="Price in USD" />
+</NumberField.Root>
+```
+
+### External label
+
+```tsx
+<h2 id="price-heading">Configure price</h2>
+<NumberField.Root locale="en-US">
+  <NumberField.Input aria-labelledby="price-heading" />
+</NumberField.Root>
+```
+
+## Automated testing
+
+numra is tested with `jest-axe` for WCAG compliance:
+
+```ts
+import { axe, toHaveNoViolations } from "jest-axe";
+import { render } from "@testing-library/react";
+import { NumberField } from "numra";
+
+expect.extend(toHaveNoViolations);
+
+test("has no accessibility violations", async () => {
+  const { container } = render(
+    <NumberField.Root locale="en-US" defaultValue={42}>
+      <NumberField.Label>Amount</NumberField.Label>
+      <NumberField.Input />
+    </NumberField.Root>
+  );
+
+  const results = await axe(container);
+  expect(results).toHaveNoViolations();
+});
+```

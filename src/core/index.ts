@@ -16,7 +16,7 @@ export type {
 
 export { presets } from "./presets.js";
 
-export { normalizeDigits, isNonLatinDigit, registerLocale } from "./normalizer.js";
+export { normalizeDigits, registerLocale } from "./normalizer.js";
 export type { LocaleConfig } from "./normalizer.js";
 
 export { createFormatter } from "./formatter.js";

@@ -1,0 +1,86 @@
+---
+title: numra
+description: The definitive React number input — live formatting, full i18n, headless, accessible
+template: splash
+hero:
+  tagline: Live formatting • Full i18n • Headless • Accessible • < 5 KB
+  actions:
+    - text: Get Started
+      link: /getting-started
+      icon: right-arrow
+      variant: primary
+    - text: View on GitHub
+      link: https://github.com/47vigen/numra
+      icon: external
+---
+
+import { Card, CardGrid } from "@astrojs/starlight/components";
+
+## Why numra?
+
+Every other React number input forces a trade-off. **numra eliminates all four.**
+
+<CardGrid>
+  <Card title="Live formatting" icon="pencil">
+    Formats as you type using the same cursor-boundary algorithm as
+    react-number-format — no flicker, cursor stays in place.
+  </Card>
+  <Card title="Full i18n" icon="translate">
+    Accepts Persian ۱۲۳, Arabic ١٢٣, Bengali ১২৩, Devanagari १२३, Thai ๑๒๓.
+    Separators extracted dynamically via `Intl.NumberFormat`.
+  </Card>
+  <Card title="Headless" icon="puzzle">
+    Zero styles. Bring Tailwind, CSS Modules, or any design system. Compound
+    components or raw hooks — your choice.
+  </Card>
+  <Card title="Accessible" icon="approve-check-circle">
+    WAI-ARIA `spinbutton` role, `aria-valuenow/min/max/valuetext`, keyboard
+    navigation (↑ ↓ PgUp PgDn Home End), focus management.
+  </Card>
+</CardGrid>
+
+## Quick install
+
+```sh
+npm install numra
+# or
+pnpm add numra
+# or
+yarn add numra
+```
+
+## Thirty-second example
+
+```tsx
+import { NumberField } from "numra";
+
+export function PriceInput() {
+  return (
+    <NumberField.Root
+      locale="en-US"
+      formatOptions={{ style: "currency", currency: "USD" }}
+      defaultValue={0}
+      minValue={0}
+    >
+      <NumberField.Label>Price</NumberField.Label>
+      <NumberField.Group>
+        <NumberField.Decrement>−</NumberField.Decrement>
+        <NumberField.Input />
+        <NumberField.Increment>+</NumberField.Increment>
+      </NumberField.Group>
+      <NumberField.HiddenInput name="price" />
+    </NumberField.Root>
+  );
+}
+```
+
+Type `1234` → see `$1,234.00`. Type `1234.5` → see `$1,234.5` (live, no flicker).
+
+## Bundle size
+
+| Import | Gzipped |
+|--------|---------|
+| `numra/core` | < 2 KB |
+| `numra` (full) | < 9 KB |
+| `numra/locales/fa` | < 0.3 KB |
+| `numra/locales/ar` | < 0.3 KB |

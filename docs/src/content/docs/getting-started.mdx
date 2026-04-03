@@ -1,0 +1,187 @@
+---
+title: Getting Started
+description: Install numra and build your first number field in under five minutes.
+---
+
+import { Tabs, TabItem, Aside } from "@astrojs/starlight/components";
+
+## Installation
+
+<Tabs>
+  <TabItem label="npm">
+    ```sh
+    npm install numra
+    ```
+  </TabItem>
+  <TabItem label="pnpm">
+    ```sh
+    pnpm add numra
+    ```
+  </TabItem>
+  <TabItem label="yarn">
+    ```sh
+    yarn add numra
+    ```
+  </TabItem>
+</Tabs>
+
+**Peer dependencies:** React 18 or 19.
+
+## Your first field
+
+### Component API (recommended)
+
+```tsx
+import { NumberField } from "numra";
+
+export function QuantityInput() {
+  return (
+    <NumberField.Root locale="en-US" defaultValue={1} minValue={0}>
+      <NumberField.Label>Quantity</NumberField.Label>
+      <NumberField.Group>
+        <NumberField.Decrement>−</NumberField.Decrement>
+        <NumberField.Input />
+        <NumberField.Increment>+</NumberField.Increment>
+      </NumberField.Group>
+    </NumberField.Root>
+  );
+}
+```
+
+### Hook API (maximum control)
+
+```tsx
+import { useRef } from "react";
+import { useNumberFieldState, useNumberField } from "numra";
+
+export function QuantityInput() {
+  const inputRef = useRef<HTMLInputElement>(null);
+
+  const state = useNumberFieldState({
+    locale: "en-US",
+    defaultValue: 1,
+    minValue: 0,
+  });
+
+  const { labelProps, groupProps, inputProps, incrementButtonProps, decrementButtonProps } =
+    useNumberField({ locale: "en-US", minValue: 0 }, state, inputRef);
+
+  return (
+    <div>
+      <label {...labelProps}>Quantity</label>
+      <div {...groupProps}>
+        <button {...decrementButtonProps}>−</button>
+        <input {...inputProps} ref={inputRef} />
+        <button {...incrementButtonProps}>+</button>
+      </div>
+    </div>
+  );
+}
+```
+
+## Controlled vs uncontrolled
+
+Like all React form controls, numra supports both patterns.
+
+### Uncontrolled (defaultValue)
+
+```tsx
+<NumberField.Root locale="en-US" defaultValue={42}>
+  <NumberField.Input />
+</NumberField.Root>
+```
+
+### Controlled (value + onChange)
+
+```tsx
+const [value, setValue] = useState<number | null>(42);
+
+<NumberField.Root locale="en-US" value={value} onChange={setValue}>
+  <NumberField.Input />
+</NumberField.Root>
+```
+
+`onChange` receives `number | null`. It is called only on **commit** events (blur,
+Enter, or stepper buttons) — never on every keystroke, so intermediate states
+like `"1."` don't trigger it.
+
+## Currency formatting
+
+```tsx
+<NumberField.Root
+  locale="en-US"
+  formatOptions={{ style: "currency", currency: "USD" }}
+  defaultValue={0}
+  minValue={0}
+>
+  <NumberField.Label>Price</NumberField.Label>
+  <NumberField.Group>
+    <NumberField.Decrement>−</NumberField.Decrement>
+    <NumberField.Input />
+    <NumberField.Increment>+</NumberField.Increment>
+  </NumberField.Group>
+</NumberField.Root>
+```
+
+The `formatOptions` prop accepts any `Intl.NumberFormatOptions`. Use
+[`presets`](/api/presets) for common configurations.
+
+## Adding min/max/step
+
+```tsx
+<NumberField.Root
+  locale="en-US"
+  defaultValue={50}
+  minValue={0}
+  maxValue={100}
+  step={5}
+  largeStep={25}
+>
+  <NumberField.Input />
+</NumberField.Root>
+```
+
+| Key | Action |
+|-----|--------|
+| ↑ / ↓ | step (default: 1) |
+| Shift + ↑/↓ | largeStep (default: 10) |
+| Ctrl/Cmd + ↑/↓ | smallStep (default: 0.1) |
+| Page Up/Down | largeStep |
+| Home / End | jump to minValue / maxValue |
+
+## Form integration
+
+Use `NumberField.HiddenInput` to submit the raw numeric value in an HTML form.
+
+```tsx
+<form method="post" action="/api/price">
+  <NumberField.Root locale="en-US" name="price" defaultValue={9.99}>
+    <NumberField.Label>Price</NumberField.Label>
+    <NumberField.Input />
+    <NumberField.HiddenInput name="price" />
+  </NumberField.Root>
+  <button type="submit">Save</button>
+</form>
+```
+
+For library-managed forms see [react-hook-form](/recipes/react-hook-form) and
+[Formik](/recipes/formik) recipes.
+
+## TypeScript
+
+numra is written in TypeScript. Key types:
+
+```ts
+import type {
+  UseNumberFieldStateOptions,
+  NumberFieldState,
+  UseNumberFieldProps,
+  NumberFieldAria,
+  ChangeReason,
+} from "numra";
+```
+
+<Aside type="tip">
+  Use `numra/core` for server-side formatting (RSC, edge functions). It has zero
+  React dependency. See [Next.js guide](/guides/nextjs).
+</Aside>
