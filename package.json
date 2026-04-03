@@ -12,7 +12,7 @@
   "homepage": "https://47vigen.github.io/numra",
   "repository": {
     "type": "git",
-    "url": "https://github.com/47vigen/numra.git"
+    "url": "git+https://github.com/47vigen/numra.git"
   },
   "bugs": {
     "url": "https://github.com/47vigen/numra/issues"
@@ -20,6 +20,14 @@
   "publishConfig": {
     "access": "public",
     "provenance": true
+  },
+  "typesVersions": {
+    "*": {
+      "core": ["./dist/core.d.ts"],
+      "react": ["./dist/react.d.ts"],
+      "locales/*": ["./dist/locales/*.d.ts"],
+      "server": ["./dist/core.d.ts"]
+    }
   },
   "exports": {
     ".": {
