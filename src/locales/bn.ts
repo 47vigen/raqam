@@ -13,3 +13,6 @@ registerLocale({
     [0x09e6, 0x09ef], // Bengali ০–৯
   ],
 });
+
+/** BCP 47 locale tags that this plugin covers. */
+export const LOCALE_CODES = ["bn", "bn-BD", "bn-IN"] as const;

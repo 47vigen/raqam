@@ -529,6 +529,7 @@ export function useNumberField(
     "data-readonly": readOnly ? "" : undefined,
     "data-required": required ? "" : undefined,
     "data-invalid": isInvalid ? "" : undefined,
+    "data-rtl": localeInfo.isRTL ? "" : undefined,
   } as React.InputHTMLAttributes<HTMLInputElement>;
 
   const hiddenInputProps: React.InputHTMLAttributes<HTMLInputElement> | null =

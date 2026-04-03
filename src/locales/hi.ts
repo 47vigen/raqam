@@ -13,3 +13,6 @@ registerLocale({
     [0x0966, 0x096f], // Devanagari ०–९
   ],
 });
+
+/** BCP 47 locale tags that this plugin covers. */
+export const LOCALE_CODES = ["hi", "hi-IN", "mr", "mr-IN", "ne", "ne-NP"] as const;

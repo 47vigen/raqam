@@ -4,9 +4,13 @@
  *
  * Usage:
  *   import 'numra/locales'
+ *
+ * Named re-exports alias each LOCALE_CODES array to avoid ambiguity:
+ *   FA_LOCALE_CODES, AR_LOCALE_CODES, BN_LOCALE_CODES, HI_LOCALE_CODES, TH_LOCALE_CODES
  */
-export * from "./fa.js";
-export * from "./ar.js";
-export * from "./bn.js";
-export * from "./hi.js";
-export * from "./th.js";
+// Re-exporting LOCALE_CODES also evaluates each module, triggering registerLocale().
+export { LOCALE_CODES as FA_LOCALE_CODES } from "./fa.js";
+export { LOCALE_CODES as AR_LOCALE_CODES } from "./ar.js";
+export { LOCALE_CODES as BN_LOCALE_CODES } from "./bn.js";
+export { LOCALE_CODES as HI_LOCALE_CODES } from "./hi.js";
+export { LOCALE_CODES as TH_LOCALE_CODES } from "./th.js";
