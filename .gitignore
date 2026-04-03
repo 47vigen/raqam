@@ -1,3 +1,8 @@
 node_modules
 dist/
 coverage/
+
+# Playwright runtime artifacts
+playwright-report/
+test-results/
+playwright/.cache/

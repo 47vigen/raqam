@@ -361,6 +361,47 @@ export function useNumberField(
 
       const key = e.key;
 
+      // Smart backspace: when cursor is immediately after a grouping separator
+      // (no selection active, no modifier keys), delete both the separator and
+      // the preceding digit so the user can backspace through formatted numbers
+      // without the comma "blocking" deletion.
+      //
+      // This must be handled in keydown — by the time onChange fires, the
+      // browser has already removed the separator character, making it
+      // impossible to detect what was deleted.
+      if (key === "Backspace" && !e.shiftKey && !e.altKey && !e.metaKey && !e.ctrlKey) {
+        const input = inputRef.current;
+        if (input) {
+          const cursor = input.selectionStart ?? 0;
+          const selEnd = input.selectionEnd ?? cursor;
+          const currentValue = input.value;
+          const info = formatter.getLocaleInfo();
+
+          if (
+            cursor === selEnd &&   // no text selection — single caret
+            cursor >= 2 &&
+            currentValue[cursor - 1] === info.groupingSeparator
+          ) {
+            e.preventDefault();
+            // Remove the grouping separator (cursor-1) AND the digit before it (cursor-2)
+            const rawEdited =
+              currentValue.slice(0, cursor - 2) + currentValue.slice(cursor);
+            const parseResult = parser.parse(rawEdited);
+
+            state._setLastChangeReason("input");
+            if (parseResult.value !== null) {
+              const formatted = formatter.format(parseResult.value);
+              state.setInputValue(formatted);
+            } else {
+              // Empty or intermediate — store as-is (blur will clean up)
+              state.setInputValue(rawEdited);
+            }
+            pendingCursor.current = cursor - 2;
+            return;
+          }
+        }
+      }
+
       if (key === "ArrowUp" || key === "ArrowDown") {
         e.preventDefault();
         const direction = key === "ArrowUp" ? 1 : -1;
@@ -413,7 +454,7 @@ export function useNumberField(
         return;
       }
     },
-    [disabled, readOnly, state, largeStep, smallStep, minValue, maxValue]
+    [disabled, readOnly, state, largeStep, smallStep, minValue, maxValue, formatter, parser, inputRef]
   );
 
   // ── Blur handler ─────────────────────────────────────────────────────────
@@ -529,6 +570,7 @@ export function useNumberField(
     "data-readonly": readOnly ? "" : undefined,
     "data-required": required ? "" : undefined,
     "data-invalid": isInvalid ? "" : undefined,
+    "data-rtl": localeInfo.isRTL ? "" : undefined,
   } as React.InputHTMLAttributes<HTMLInputElement>;
 
   const hiddenInputProps: React.InputHTMLAttributes<HTMLInputElement> | null =

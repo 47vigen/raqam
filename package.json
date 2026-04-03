@@ -75,7 +75,10 @@
     "build-storybook": "storybook build",
     "prepublishOnly": "pnpm build && pnpm typecheck",
     "size": "size-limit",
-    "publint": "publint"
+    "publint": "publint",
+    "test:e2e": "playwright test -c playwright-ct.config.ts",
+    "test:e2e:ui": "playwright test -c playwright-ct.config.ts --ui",
+    "test:e2e:debug": "playwright test -c playwright-ct.config.ts --headed --project=chromium"
   },
   "keywords": [
     "react",
@@ -97,6 +100,8 @@
   },
   "devDependencies": {
     "@changesets/cli": "^2.27.9",
+    "@playwright/experimental-ct-react": "^1.59.1",
+    "@playwright/test": "^1.59.1",
     "@size-limit/preset-small-lib": "^11.1.6",
     "@storybook/react": "^10.3.4",
     "@storybook/react-vite": "^10.3.4",

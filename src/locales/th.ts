@@ -13,3 +13,6 @@ registerLocale({
     [0x0e50, 0x0e59], // Thai ๐–๙
   ],
 });
+
+/** BCP 47 locale tags that this plugin covers. */
+export const LOCALE_CODES = ["th", "th-TH"] as const;
