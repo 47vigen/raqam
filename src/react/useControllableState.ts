@@ -16,24 +16,27 @@ export function useControllableState<T>({
   value,
   defaultValue,
   onChange,
-}: UseControllableStateOptions<T>): [T | undefined, (next: T | ((prev: T | undefined) => T)) => void] {
+}: UseControllableStateOptions<T>): [
+  T | undefined,
+  (next: T | ((prev: T | undefined) => T)) => void,
+] {
   const isControlled = value !== undefined;
   const wasControlled = useRef(isControlled);
 
-  if (typeof window !== "undefined" && (window as unknown as { __DEV__?: boolean }).__DEV__ !== false) {
+  if (
+    typeof window !== "undefined" &&
+    (window as unknown as { __DEV__?: boolean }).__DEV__ !== false
+  ) {
     if (wasControlled.current !== isControlled) {
       console.warn(
         `[numra] Component is changing from ${
           wasControlled.current ? "controlled" : "uncontrolled"
-        } to ${isControlled ? "controlled" : "uncontrolled"}. ` +
-          "Decide between using a controlled or uncontrolled component and don't switch."
+        } to ${isControlled ? "controlled" : "uncontrolled"}. Decide between using a controlled or uncontrolled component and don't switch.`
       );
     }
   }
 
-  const [internalValue, setInternalValue] = useState<T | undefined>(
-    defaultValue
-  );
+  const [internalValue, setInternalValue] = useState<T | undefined>(defaultValue);
 
   const set = useCallback(
     (next: T | ((prev: T | undefined) => T)) => {

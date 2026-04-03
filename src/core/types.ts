@@ -250,9 +250,7 @@ export type StateRenderFn = (
   state: NumberFieldState
 ) => React.ReactElement;
 
-export type RenderProp =
-  | React.ReactElement
-  | StateRenderFn;
+export type RenderProp = React.ReactElement | StateRenderFn;
 
 export interface ScrubAreaProps
   extends ScrubAreaOptions,
@@ -283,8 +281,5 @@ export interface NumberFieldRootProps extends UseNumberFieldProps {
     }
   ) => void;
   /** Fires only on commit (blur, Enter) */
-  onValueCommitted?: (
-    value: number | null,
-    details: { reason: "blur" | "keyboard" }
-  ) => void;
+  onValueCommitted?: (value: number | null, details: { reason: "blur" | "keyboard" }) => void;
 }

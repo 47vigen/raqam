@@ -35,10 +35,7 @@ type FormatOptions = Pick<
  * })
  * // pct === "42.7%"
  */
-export function useNumberFieldFormat(
-  value: number | null,
-  options: FormatOptions = {}
-): string {
+export function useNumberFieldFormat(value: number | null, options: FormatOptions = {}): string {
   const {
     locale,
     formatOptions,

@@ -1,11 +1,11 @@
 "use client";
 
 import { useCallback, useEffect, useId, useLayoutEffect, useMemo, useRef } from "react";
-import type { NumberFieldAria, NumberFieldState, UseNumberFieldProps } from "../core/types.js";
-import { createFormatter } from "../core/formatter.js";
-import { createParser } from "../core/parser.js";
 import { computeNewCursorPosition } from "../core/cursor.js";
+import { createFormatter } from "../core/formatter.js";
 import { normalizeDigits } from "../core/normalizer.js";
+import { createParser } from "../core/parser.js";
+import type { NumberFieldAria, NumberFieldState, UseNumberFieldProps } from "../core/types.js";
 import { usePressAndHold } from "./usePressAndHold.js";
 
 // ── Tiny helper to safely escape regex special chars (including hyphen) ──────
@@ -48,11 +48,7 @@ export function useNumberField(
     parseValue: customParseValue,
   } = props; // formatValue/parseValue are on UseNumberFieldStateOptions (inherited)
 
-  const {
-    step = 1,
-    largeStep = step * 10,
-    smallStep = step * 0.1,
-  } = state.options;
+  const { step = 1, largeStep = step * 10, smallStep = step * 0.1 } = state.options;
 
   const autoId = useId();
   const inputId = props.id ?? `numra-${autoId}`;
@@ -73,7 +69,15 @@ export function useNumberField(
         fixedDecimalScale,
       }),
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [locale, JSON.stringify(formatOptions), prefix, suffix, minimumFractionDigits, maximumFractionDigits, fixedDecimalScale]
+    [
+      locale,
+      JSON.stringify(formatOptions),
+      prefix,
+      suffix,
+      minimumFractionDigits,
+      maximumFractionDigits,
+      fixedDecimalScale,
+    ]
   );
 
   const parser = useMemo(
@@ -100,13 +104,10 @@ export function useNumberField(
       inputRef.current &&
       document.activeElement === inputRef.current
     ) {
-      inputRef.current.setSelectionRange(
-        pendingCursor.current,
-        pendingCursor.current
-      );
+      inputRef.current.setSelectionRange(pendingCursor.current, pendingCursor.current);
       pendingCursor.current = null;
     }
-  // Run after every inputValue change
+    // Run after every inputValue change
   }, [state.inputValue, inputRef]);
 
   // ── Mouse wheel (non-passive native listener) ────────────────────────────
@@ -278,9 +279,7 @@ export function useNumberField(
       if (!text) return;
 
       // 1. Strip common currency symbols (global currencies)
-      const stripped = text
-        .replace(/[€$£¥₹₺₽﷼฿₩¢₦₨₪₫₱]/g, "")
-        .trim();
+      const stripped = text.replace(/[€$£¥₹₺₽﷼฿₩¢₦₨₪₫₱]/g, "").trim();
 
       // 2. Normalize non-Latin digits to ASCII
       const normalized = normalizeDigits(stripped);
@@ -378,14 +377,13 @@ export function useNumberField(
           const info = formatter.getLocaleInfo();
 
           if (
-            cursor === selEnd &&   // no text selection — single caret
+            cursor === selEnd && // no text selection — single caret
             cursor >= 2 &&
             currentValue[cursor - 1] === info.groupingSeparator
           ) {
             e.preventDefault();
             // Remove the grouping separator (cursor-1) AND the digit before it (cursor-2)
-            const rawEdited =
-              currentValue.slice(0, cursor - 2) + currentValue.slice(cursor);
+            const rawEdited = currentValue.slice(0, cursor - 2) + currentValue.slice(cursor);
             const parseResult = parser.parse(rawEdited);
 
             state._setLastChangeReason("input");
@@ -454,7 +452,18 @@ export function useNumberField(
         return;
       }
     },
-    [disabled, readOnly, state, largeStep, smallStep, minValue, maxValue, formatter, parser, inputRef]
+    [
+      disabled,
+      readOnly,
+      state,
+      largeStep,
+      smallStep,
+      minValue,
+      maxValue,
+      formatter,
+      parser,
+      inputRef,
+    ]
   );
 
   // ── Blur handler ─────────────────────────────────────────────────────────
@@ -478,23 +487,29 @@ export function useNumberField(
   );
 
   // ── Press-and-hold for increment/decrement buttons ───────────────────────
-  const incrementHold = usePressAndHold(() => {
-    state._setLastChangeReason("increment");
-    state.increment();
-  }, {
-    delay: stepHoldDelay,
-    interval: stepHoldInterval,
-    disabled: disabled || !state.canIncrement,
-  });
+  const incrementHold = usePressAndHold(
+    () => {
+      state._setLastChangeReason("increment");
+      state.increment();
+    },
+    {
+      delay: stepHoldDelay,
+      interval: stepHoldInterval,
+      disabled: disabled || !state.canIncrement,
+    }
+  );
 
-  const decrementHold = usePressAndHold(() => {
-    state._setLastChangeReason("decrement");
-    state.decrement();
-  }, {
-    delay: stepHoldDelay,
-    interval: stepHoldInterval,
-    disabled: disabled || !state.canDecrement,
-  });
+  const decrementHold = usePressAndHold(
+    () => {
+      state._setLastChangeReason("decrement");
+      state.decrement();
+    },
+    {
+      delay: stepHoldDelay,
+      interval: stepHoldInterval,
+      disabled: disabled || !state.canDecrement,
+    }
+  );
 
   // ── ARIA valuetext ───────────────────────────────────────────────────────
   const ariaValueText = useMemo(() => {
@@ -573,15 +588,14 @@ export function useNumberField(
     "data-rtl": localeInfo.isRTL ? "" : undefined,
   } as React.InputHTMLAttributes<HTMLInputElement>;
 
-  const hiddenInputProps: React.InputHTMLAttributes<HTMLInputElement> | null =
-    name
-      ? {
-          type: "hidden",
-          name,
-          value: state.numberValue ?? "",
-          "aria-hidden": true,
-        }
-      : null;
+  const hiddenInputProps: React.InputHTMLAttributes<HTMLInputElement> | null = name
+    ? {
+        type: "hidden",
+        name,
+        value: state.numberValue ?? "",
+        "aria-hidden": true,
+      }
+    : null;
 
   const incrementButtonProps: React.ButtonHTMLAttributes<HTMLButtonElement> = {
     type: "button",

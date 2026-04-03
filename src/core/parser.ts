@@ -1,6 +1,6 @@
-import type { ParseResult, LocaleInfo } from "./types.js";
-import { normalizeDigits } from "./normalizer.js";
 import { createFormatter } from "./formatter.js";
+import { normalizeDigits } from "./normalizer.js";
+import type { LocaleInfo, ParseResult } from "./types.js";
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
@@ -38,10 +38,7 @@ function checkIntermediate(
     return true;
   }
   // Trailing zeros after decimal  (e.g. "1.0", "1.00", "-1.0")
-  if (
-    allowDecimal &&
-    new RegExp(`^${minus}?\\d+${dec}\\d*0+$`).test(normalized)
-  ) {
+  if (allowDecimal && new RegExp(`^${minus}?\\d+${dec}\\d*0+$`).test(normalized)) {
     return true;
   }
   return false;
@@ -94,7 +91,7 @@ export function createParser(opts: ParserOptions = {}): Parser {
     // Intl.NumberFormat with currencySign:"accounting" wraps negatives in parens
     const accountingMatch = s.match(/^\((.+)\)$/);
     if (accountingMatch) {
-      s = "-" + accountingMatch[1];
+      s = `-${accountingMatch[1]}`;
     }
 
     // 3. Strip prefix / suffix
@@ -164,8 +161,8 @@ export function createParser(opts: ParserOptions = {}): Parser {
       return { value: null, isValid: false, isIntermediate: false };
     }
 
-    const n = parseFloat(stripped);
-    if (!isFinite(n)) {
+    const n = Number.parseFloat(stripped);
+    if (!Number.isFinite(n)) {
       return { value: null, isValid: false, isIntermediate: false };
     }
 

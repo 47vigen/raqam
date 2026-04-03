@@ -1,11 +1,7 @@
 import { useCallback, useMemo, useRef, useState } from "react";
-import type {
-  ChangeReason,
-  NumberFieldState,
-  UseNumberFieldStateOptions,
-} from "../core/types.js";
 import { createFormatter } from "../core/formatter.js";
 import { createParser } from "../core/parser.js";
+import type { ChangeReason, NumberFieldState, UseNumberFieldStateOptions } from "../core/types.js";
 import { useControllableState } from "./useControllableState.js";
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
@@ -19,10 +15,7 @@ function clamp(value: number, min?: number, max?: number): number {
 
 function preciseAdd(a: number, b: number): number {
   // Simple float precision fix — avoids 0.1 + 0.2 = 0.30000000000000004
-  const precision = Math.max(
-    decimalPlaces(a),
-    decimalPlaces(b)
-  );
+  const precision = Math.max(decimalPlaces(a), decimalPlaces(b));
   const factor = 10 ** precision;
   return Math.round(a * factor + b * factor) / factor;
 }
@@ -35,9 +28,7 @@ function decimalPlaces(n: number): number {
 
 // ── Hook ──────────────────────────────────────────────────────────────────────
 
-export function useNumberFieldState(
-  options: UseNumberFieldStateOptions
-): NumberFieldState {
+export function useNumberFieldState(options: UseNumberFieldStateOptions): NumberFieldState {
   const {
     locale,
     formatOptions,
@@ -96,14 +87,7 @@ export function useNumberFieldState(
         suffix,
       }),
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [
-      locale,
-      JSON.stringify(formatOptions),
-      allowNegative,
-      allowDecimal,
-      prefix,
-      suffix,
-    ]
+    [locale, JSON.stringify(formatOptions), allowNegative, allowDecimal, prefix, suffix]
   );
 
   // ── Controlled/uncontrolled numeric value ──────────────────────────────────
@@ -117,8 +101,7 @@ export function useNumberFieldState(
   // Stored in local state — can transiently diverge from numberValue
   // (e.g. while typing "1." which isn't a valid JS number yet)
   const formatDisplay = useCallback(
-    (n: number): string =>
-      customFormatValue ? customFormatValue(n) : formatter.format(n),
+    (n: number): string => (customFormatValue ? customFormatValue(n) : formatter.format(n)),
     // eslint-disable-next-line react-hooks/exhaustive-deps
     [formatter, customFormatValue]
   );
@@ -131,7 +114,7 @@ export function useNumberFieldState(
       return formatDisplay(options.value);
     }
     return "";
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []); // Only on mount
 
   const [inputValue, setInputValueRaw] = useState<string>(initialDisplay);
@@ -146,11 +129,14 @@ export function useNumberFieldState(
 
   // ── Validation state ───────────────────────────────────────────────────────
   const runValidation = useCallback(
-    (val: number | null): { validationState: "valid" | "invalid"; validationError: string | null } => {
+    (
+      val: number | null
+    ): { validationState: "valid" | "invalid"; validationError: string | null } => {
       if (!validate) return { validationState: "valid", validationError: null };
       const result = validate(val);
       if (result === false) return { validationState: "invalid", validationError: null };
-      if (typeof result === "string") return { validationState: "invalid", validationError: result };
+      if (typeof result === "string")
+        return { validationState: "invalid", validationError: result };
       return { validationState: "valid", validationError: null };
     },
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -160,7 +146,7 @@ export function useNumberFieldState(
   const initialValidation = useMemo(() => {
     const initVal = options.defaultValue ?? options.value ?? null;
     return runValidation(initVal != null ? initVal : null);
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []); // Only on mount
 
   const [validationState, setValidationState] = useState<"valid" | "invalid">(
@@ -200,11 +186,14 @@ export function useNumberFieldState(
   }
 
   // ── Internal helper: apply validation after a value change ────────────────
-  const applyValidation = useCallback((val: number | null) => {
-    const { validationState: vs, validationError: ve } = runValidation(val);
-    setValidationState(vs);
-    setValidationError(ve);
-  }, [runValidation]);
+  const applyValidation = useCallback(
+    (val: number | null) => {
+      const { validationState: vs, validationError: ve } = runValidation(val);
+      setValidationState(vs);
+      setValidationError(ve);
+    },
+    [runValidation]
+  );
 
   // ── setInputValue ──────────────────────────────────────────────────────────
   const setInputValue = useCallback(
@@ -224,7 +213,16 @@ export function useNumberFieldState(
       onRawChange?.(result.value !== null ? val : null);
       applyValidation(result.value);
     },
-    [parser, clampBehavior, allowOutOfRange, minValue, maxValue, setNumberValue, onRawChange, applyValidation]
+    [
+      parser,
+      clampBehavior,
+      allowOutOfRange,
+      minValue,
+      maxValue,
+      setNumberValue,
+      onRawChange,
+      applyValidation,
+    ]
   );
 
   // ── setNumberValue (external) ──────────────────────────────────────────────
@@ -271,7 +269,16 @@ export function useNumberFieldState(
       setNumberValue(clamped);
     }
     applyValidation(clamped);
-  }, [numberValue, clampBehavior, allowOutOfRange, minValue, maxValue, formatter, setNumberValue, applyValidation]);
+  }, [
+    numberValue,
+    clampBehavior,
+    allowOutOfRange,
+    minValue,
+    maxValue,
+    formatter,
+    setNumberValue,
+    applyValidation,
+  ]);
 
   // ── Step computation ───────────────────────────────────────────────────────
   const resolvedLargeStep = largeStep ?? step * 10;
@@ -280,12 +287,16 @@ export function useNumberFieldState(
   const canIncrement =
     !options.disabled &&
     !options.readOnly &&
-    (allowOutOfRange || maxValue === undefined || (numberValue ?? -Infinity) < maxValue);
+    (allowOutOfRange ||
+      maxValue === undefined ||
+      (numberValue ?? Number.NEGATIVE_INFINITY) < maxValue);
 
   const canDecrement =
     !options.disabled &&
     !options.readOnly &&
-    (allowOutOfRange || minValue === undefined || (numberValue ?? Infinity) > minValue);
+    (allowOutOfRange ||
+      minValue === undefined ||
+      (numberValue ?? Number.POSITIVE_INFINITY) > minValue);
 
   const increment = useCallback(
     (amount?: number) => {

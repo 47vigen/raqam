@@ -33,6 +33,9 @@ jobs:
         run: |
           pnpm add -D react@18 react-dom@18 @types/react@18 @types/react-dom@18
 
+      - name: Lint
+        run: pnpm lint
+
       - name: TypeCheck
         run: pnpm typecheck
 
@@ -62,6 +65,9 @@ jobs:
 
       - name: Validate package exports
         run: npx publint
+
+      - name: Check type export correctness
+        run: npx @arethetypeswrong/cli --pack .
 
       - name: Check bundle sizes
         run: pnpm size

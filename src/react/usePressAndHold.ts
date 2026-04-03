@@ -34,13 +34,19 @@ export function usePressAndHold(
 
   // Stable refs so handlers don't re-create on every render
   const callbackRef = useRef(callback);
-  useEffect(() => { callbackRef.current = callback; });
+  useEffect(() => {
+    callbackRef.current = callback;
+  });
 
   const delayRef = useRef(delay);
-  useEffect(() => { delayRef.current = delay; });
+  useEffect(() => {
+    delayRef.current = delay;
+  });
 
   const intervalRef = useRef(interval);
-  useEffect(() => { intervalRef.current = interval; });
+  useEffect(() => {
+    intervalRef.current = interval;
+  });
 
   // Timer handle refs (null = no active timer)
   const delayTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -87,15 +93,21 @@ export function usePressAndHold(
     [disabled, scheduleRepeat]
   );
 
-  const onPointerUp = useCallback((e: React.PointerEvent) => {
-    e.preventDefault();
-    clearTimers();
-  }, [clearTimers]);
+  const onPointerUp = useCallback(
+    (e: React.PointerEvent) => {
+      e.preventDefault();
+      clearTimers();
+    },
+    [clearTimers]
+  );
 
-  const onPointerLeave = useCallback((e: React.PointerEvent) => {
-    void e;
-    clearTimers();
-  }, [clearTimers]);
+  const onPointerLeave = useCallback(
+    (e: React.PointerEvent) => {
+      void e;
+      clearTimers();
+    },
+    [clearTimers]
+  );
 
   // Safety: clear on unmount
   useEffect(() => clearTimers, [clearTimers]);

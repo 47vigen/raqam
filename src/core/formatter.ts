@@ -1,4 +1,4 @@
-import type { LocaleInfo, FormatResult } from "./types.js";
+import type { FormatResult, LocaleInfo } from "./types.js";
 
 // ── Internal ──────────────────────────────────────────────────────────────────
 
@@ -119,7 +119,7 @@ export function createFormatter(opts: FormatterOptions): Formatter {
   }
 
   function format(value: number): string {
-    if (!isFinite(value)) return "";
+    if (!Number.isFinite(value)) return "";
     const formatted = intlFmt.format(value);
     return (opts.prefix ?? "") + formatted + (opts.suffix ?? "");
   }

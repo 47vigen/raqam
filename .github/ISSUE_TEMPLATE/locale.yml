@@ -1,0 +1,77 @@
+name: Locale Support Request
+description: Request support for a new locale or script's digit system
+labels: [locale, enhancement]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        numra supports locale-aware formatting via `Intl.NumberFormat` for all CLDR locales.
+        This template is for requesting a **digit-normalization plugin** for a non-Latin script
+        (similar to the existing `numra/locales/fa`, `numra/locales/ar`, etc.).
+
+  - type: input
+    id: bcp47
+    attributes:
+      label: BCP 47 locale tag(s)
+      description: The locale tag(s) this plugin should cover.
+      placeholder: e.g. my, my-MM (Burmese)
+    validations:
+      required: true
+
+  - type: input
+    id: script
+    attributes:
+      label: Script name
+      description: The Unicode script name.
+      placeholder: e.g. Myanmar
+    validations:
+      required: true
+
+  - type: input
+    id: unicode-range
+    attributes:
+      label: Digit Unicode range
+      description: The codepoint range for digits 0–9 in this script.
+      placeholder: e.g. U+1040–U+1049
+    validations:
+      required: true
+
+  - type: input
+    id: decimal-sep
+    attributes:
+      label: Decimal separator
+      description: The decimal separator character for this locale.
+      placeholder: e.g. . (U+002E)
+    validations:
+      required: true
+
+  - type: input
+    id: grouping-sep
+    attributes:
+      label: Grouping separator
+      description: The thousands/grouping separator character.
+      placeholder: e.g. , (U+002C)
+    validations:
+      required: true
+
+  - type: input
+    id: example
+    attributes:
+      label: Sample formatted number
+      description: How does 1,234,567.89 look in this locale?
+      placeholder: e.g. ၁,၂၃၄,၅၆၇.၈၉
+    validations:
+      required: true
+
+  - type: checkboxes
+    id: rtl
+    attributes:
+      label: RTL?
+      options:
+        - label: This locale uses right-to-left text direction
+
+  - type: textarea
+    id: additional
+    attributes:
+      label: Additional context
+      description: Links to CLDR data, keyboard layout info, or other references.

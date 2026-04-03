@@ -1,5 +1,5 @@
-import type { CaretBoundary, LocaleInfo } from "./types.js";
 import { normalizeDigits } from "./normalizer.js";
+import type { CaretBoundary, LocaleInfo } from "./types.js";
 
 // ── Accepted-character helpers ────────────────────────────────────────────────
 
@@ -21,11 +21,7 @@ function isAccepted(ch: string, info: LocaleInfo): boolean {
  * Count how many "accepted" characters appear before position `cursor`
  * in `str` (after normalising non-Latin digits to ASCII).
  */
-function countAcceptedBefore(
-  str: string,
-  cursor: number,
-  info: LocaleInfo
-): number {
+function countAcceptedBefore(str: string, cursor: number, info: LocaleInfo): number {
   const normalised = normalizeDigits(str);
   let count = 0;
   for (let i = 0; i < cursor && i < normalised.length; i++) {
@@ -49,10 +45,7 @@ function countAcceptedBefore(
  *    skip the comma).
  *  - A position immediately BEFORE a grouping separator is valid.
  */
-export function getCaretBoundary(
-  formattedValue: string,
-  info: LocaleInfo
-): CaretBoundary {
+export function getCaretBoundary(formattedValue: string, info: LocaleInfo): CaretBoundary {
   const len = formattedValue.length;
   const boundary: CaretBoundary = new Array(len + 1).fill(true) as boolean[];
 

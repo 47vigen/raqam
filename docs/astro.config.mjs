@@ -2,6 +2,8 @@ import { defineConfig } from "astro/config";
 import starlight from "@astrojs/starlight";
 
 export default defineConfig({
+  site: "https://47vigen.github.io",
+  base: "/numra",
   integrations: [
     starlight({
       title: "numra",

@@ -5,12 +5,12 @@ import type {
   NumberFieldRootProps,
   NumberFieldState,
   RenderProp,
-  ScrubAreaProps,
   ScrubAreaCursorProps,
+  ScrubAreaProps,
 } from "../core/types.js";
 import { NumberFieldContext, useNumberFieldContext } from "./context.js";
-import { useNumberFieldState } from "./useNumberFieldState.js";
 import { useNumberField } from "./useNumberField.js";
+import { useNumberFieldState } from "./useNumberFieldState.js";
 import { useScrubArea } from "./useScrubArea.js";
 
 // ── Render prop utility ───────────────────────────────────────────────────────
@@ -31,16 +31,22 @@ function renderWith(
   }
 
   // Element form: clone with merged props
-  return React.cloneElement(render, Object.assign(
-    {},
-    defaultElement.props as Record<string, unknown>,
-    render.props as Record<string, unknown>
-  ));
+  return React.cloneElement(
+    render,
+    Object.assign(
+      {},
+      defaultElement.props as Record<string, unknown>,
+      render.props as Record<string, unknown>
+    )
+  );
 }
 
 // ── Data attributes helper ────────────────────────────────────────────────────
 
-function stateDataAttrs(state: NumberFieldState, isInvalid: boolean): Record<string, string | undefined> {
+function stateDataAttrs(
+  state: NumberFieldState,
+  isInvalid: boolean
+): Record<string, string | undefined> {
   const { options } = state;
   return {
     "data-disabled": options.disabled ? "" : undefined,
@@ -56,8 +62,17 @@ function stateDataAttrs(state: NumberFieldState, isInvalid: boolean): Record<str
 
 // HTML attributes that belong on the wrapper div (not passed to state/aria hooks)
 const DIV_ONLY_KEYS = new Set([
-  "className", "style", "id", "tabIndex", "title", "role",
-  "aria-label", "data-testid", "onClick", "onMouseEnter", "onMouseLeave",
+  "className",
+  "style",
+  "id",
+  "tabIndex",
+  "title",
+  "role",
+  "aria-label",
+  "data-testid",
+  "onClick",
+  "onMouseEnter",
+  "onMouseLeave",
 ]);
 
 function splitProps(props: Record<string, unknown>) {
@@ -73,58 +88,66 @@ function splitProps(props: Record<string, unknown>) {
   return { fieldProps, divProps };
 }
 
-const Root = forwardRef<HTMLDivElement, NumberFieldRootProps>(
-  function NumberFieldRoot({ children, onValueChange, onValueCommitted, ...allProps }, ref) {
-    const inputRef = useRef<HTMLInputElement>(null);
-    const { fieldProps, divProps } = splitProps(allProps as Record<string, unknown>);
-    const props = fieldProps as Omit<NumberFieldRootProps, "children" | "onValueChange" | "onValueCommitted">;
+const Root = forwardRef<HTMLDivElement, NumberFieldRootProps>(function NumberFieldRoot(
+  { children, onValueChange, onValueCommitted, ...allProps },
+  ref
+) {
+  const inputRef = useRef<HTMLInputElement>(null);
+  const { fieldProps, divProps } = splitProps(allProps as Record<string, unknown>);
+  const props = fieldProps as Omit<
+    NumberFieldRootProps,
+    "children" | "onValueChange" | "onValueCommitted"
+  >;
 
-    // Keep a stable ref to onValueChange so the onChange closure never goes stale
-    const onValueChangeRef = useRef(onValueChange);
-    onValueChangeRef.current = onValueChange;
+  // Keep a stable ref to onValueChange so the onChange closure never goes stale
+  const onValueChangeRef = useRef(onValueChange);
+  onValueChangeRef.current = onValueChange;
 
-    // Keep a stable ref to the state object so onChange can read the current reason
-    const stateRef = useRef<NumberFieldState | null>(null);
+  // Keep a stable ref to the state object so onChange can read the current reason
+  const stateRef = useRef<NumberFieldState | null>(null);
 
-    // Wrap onChange to also fire onValueChange with the tracked reason.
-    // This closure captures stateRef (stable) not state (changes each render).
-    // _setLastChangeReason is called synchronously BEFORE the state mutation
-    // that triggers onChange, so stateRef.current._getLastChangeReason() always
-    // returns the correct reason at the time onChange fires.
-    const wrappedProps = {
-      ...props,
-      onChange: (value: number | null) => {
-        props.onChange?.(value);
-        if (onValueChangeRef.current && stateRef.current) {
-          onValueChangeRef.current(value, {
-            reason: stateRef.current._getLastChangeReason(),
-            formattedValue: stateRef.current.inputValue,
-          });
-        }
-      },
-    };
+  // Wrap onChange to also fire onValueChange with the tracked reason.
+  // This closure captures stateRef (stable) not state (changes each render).
+  // _setLastChangeReason is called synchronously BEFORE the state mutation
+  // that triggers onChange, so stateRef.current._getLastChangeReason() always
+  // returns the correct reason at the time onChange fires.
+  const wrappedProps = {
+    ...props,
+    onChange: (value: number | null) => {
+      props.onChange?.(value);
+      if (onValueChangeRef.current && stateRef.current) {
+        onValueChangeRef.current(value, {
+          reason: stateRef.current._getLastChangeReason(),
+          formattedValue: stateRef.current.inputValue,
+        });
+      }
+    },
+  };
 
-    const state = useNumberFieldState(wrappedProps);
-    stateRef.current = state; // always keep stateRef pointing to current state
+  const state = useNumberFieldState(wrappedProps);
+  stateRef.current = state; // always keep stateRef pointing to current state
 
-    const aria = useNumberField(wrappedProps, state, inputRef);
+  const aria = useNumberField(wrappedProps, state, inputRef);
 
-    // Determine if field is invalid (out-of-range or failed validate)
-    const isInvalid =
-      state.validationState === "invalid" ||
-      (state.numberValue !== null &&
-        ((props.minValue !== undefined && state.numberValue < props.minValue) ||
-          (props.maxValue !== undefined && state.numberValue > props.maxValue)));
+  // Determine if field is invalid (out-of-range or failed validate)
+  const isInvalid =
+    state.validationState === "invalid" ||
+    (state.numberValue !== null &&
+      ((props.minValue !== undefined && state.numberValue < props.minValue) ||
+        (props.maxValue !== undefined && state.numberValue > props.maxValue)));
 
-    return (
-      <NumberFieldContext.Provider value={{ state, aria, inputRef, props: wrappedProps }}>
-        <div ref={ref} {...(divProps as React.HTMLAttributes<HTMLDivElement>)} {...stateDataAttrs(state, isInvalid)}>
-          {children}
-        </div>
-      </NumberFieldContext.Provider>
-    );
-  }
-);
+  return (
+    <NumberFieldContext.Provider value={{ state, aria, inputRef, props: wrappedProps }}>
+      <div
+        ref={ref}
+        {...(divProps as React.HTMLAttributes<HTMLDivElement>)}
+        {...stateDataAttrs(state, isInvalid)}
+      >
+        {children}
+      </div>
+    </NumberFieldContext.Provider>
+  );
+});
 
 // ── Label ─────────────────────────────────────────────────────────────────────
 
@@ -133,17 +156,18 @@ interface LabelProps extends React.LabelHTMLAttributes<HTMLLabelElement> {
   children?: React.ReactNode;
 }
 
-const Label = forwardRef<HTMLLabelElement, LabelProps>(
-  function NumberFieldLabel({ render, children, ...rest }, ref) {
-    const { aria, state } = useNumberFieldContext();
-    const el = (
-      <label ref={ref} {...aria.labelProps} {...rest}>
-        {children}
-      </label>
-    );
-    return renderWith(el, render, state);
-  }
-);
+const Label = forwardRef<HTMLLabelElement, LabelProps>(function NumberFieldLabel(
+  { render, children, ...rest },
+  ref
+) {
+  const { aria, state } = useNumberFieldContext();
+  const el = (
+    <label ref={ref} {...aria.labelProps} {...rest}>
+      {children}
+    </label>
+  );
+  return renderWith(el, render, state);
+});
 
 // ── Group ─────────────────────────────────────────────────────────────────────
 
@@ -152,17 +176,18 @@ interface GroupProps extends React.HTMLAttributes<HTMLDivElement> {
   children?: React.ReactNode;
 }
 
-const Group = forwardRef<HTMLDivElement, GroupProps>(
-  function NumberFieldGroup({ render, children, ...rest }, ref) {
-    const { aria, state } = useNumberFieldContext();
-    const el = (
-      <div ref={ref} {...aria.groupProps} {...rest}>
-        {children}
-      </div>
-    );
-    return renderWith(el, render, state);
-  }
-);
+const Group = forwardRef<HTMLDivElement, GroupProps>(function NumberFieldGroup(
+  { render, children, ...rest },
+  ref
+) {
+  const { aria, state } = useNumberFieldContext();
+  const el = (
+    <div ref={ref} {...aria.groupProps} {...rest}>
+      {children}
+    </div>
+  );
+  return renderWith(el, render, state);
+});
 
 // ── Input ─────────────────────────────────────────────────────────────────────
 
@@ -170,15 +195,16 @@ interface InputProps extends Omit<React.InputHTMLAttributes<HTMLInputElement>, "
   render?: RenderProp;
 }
 
-const Input = forwardRef<HTMLInputElement, InputProps>(
-  function NumberFieldInput({ render, ...rest }, _ref) {
-    const { aria, state, inputRef } = useNumberFieldContext();
-    const el = (
-      <input ref={inputRef as React.RefObject<HTMLInputElement>} {...aria.inputProps} {...rest} />
-    );
-    return renderWith(el, render, state);
-  }
-);
+const Input = forwardRef<HTMLInputElement, InputProps>(function NumberFieldInput(
+  { render, ...rest },
+  _ref
+) {
+  const { aria, state, inputRef } = useNumberFieldContext();
+  const el = (
+    <input ref={inputRef as React.RefObject<HTMLInputElement>} {...aria.inputProps} {...rest} />
+  );
+  return renderWith(el, render, state);
+});
 
 // ── Increment ─────────────────────────────────────────────────────────────────
 
@@ -187,17 +213,18 @@ interface IncrementProps extends React.ButtonHTMLAttributes<HTMLButtonElement> {
   children?: React.ReactNode;
 }
 
-const Increment = forwardRef<HTMLButtonElement, IncrementProps>(
-  function NumberFieldIncrement({ render, children, ...rest }, ref) {
-    const { aria, state } = useNumberFieldContext();
-    const el = (
-      <button ref={ref} {...aria.incrementButtonProps} {...rest}>
-        {children ?? "+"}
-      </button>
-    );
-    return renderWith(el, render, state);
-  }
-);
+const Increment = forwardRef<HTMLButtonElement, IncrementProps>(function NumberFieldIncrement(
+  { render, children, ...rest },
+  ref
+) {
+  const { aria, state } = useNumberFieldContext();
+  const el = (
+    <button ref={ref} {...aria.incrementButtonProps} {...rest}>
+      {children ?? "+"}
+    </button>
+  );
+  return renderWith(el, render, state);
+});
 
 // ── Decrement ─────────────────────────────────────────────────────────────────
 
@@ -206,17 +233,18 @@ interface DecrementProps extends React.ButtonHTMLAttributes<HTMLButtonElement> {
   children?: React.ReactNode;
 }
 
-const Decrement = forwardRef<HTMLButtonElement, DecrementProps>(
-  function NumberFieldDecrement({ render, children, ...rest }, ref) {
-    const { aria, state } = useNumberFieldContext();
-    const el = (
-      <button ref={ref} {...aria.decrementButtonProps} {...rest}>
-        {children ?? "−"}
-      </button>
-    );
-    return renderWith(el, render, state);
-  }
-);
+const Decrement = forwardRef<HTMLButtonElement, DecrementProps>(function NumberFieldDecrement(
+  { render, children, ...rest },
+  ref
+) {
+  const { aria, state } = useNumberFieldContext();
+  const el = (
+    <button ref={ref} {...aria.decrementButtonProps} {...rest}>
+      {children ?? "−"}
+    </button>
+  );
+  return renderWith(el, render, state);
+});
 
 // ── HiddenInput ───────────────────────────────────────────────────────────────
 
@@ -228,26 +256,20 @@ const HiddenInput = function NumberFieldHiddenInput() {
 
 // ── ScrubArea ─────────────────────────────────────────────────────────────────
 
-const ScrubArea = forwardRef<HTMLSpanElement, ScrubAreaProps>(
-  function NumberFieldScrubArea(
-    { render, children, direction = "horizontal", pixelSensitivity = 4, ...rest },
-    ref
-  ) {
-    const { state } = useNumberFieldContext();
-    const { scrubAreaProps } = useScrubArea(state, { direction, pixelSensitivity });
+const ScrubArea = forwardRef<HTMLSpanElement, ScrubAreaProps>(function NumberFieldScrubArea(
+  { render, children, direction = "horizontal", pixelSensitivity = 4, ...rest },
+  ref
+) {
+  const { state } = useNumberFieldContext();
+  const { scrubAreaProps } = useScrubArea(state, { direction, pixelSensitivity });
 
-    const el = (
-      <span
-        ref={ref}
-        {...scrubAreaProps}
-        {...(rest as React.HTMLAttributes<HTMLSpanElement>)}
-      >
-        {children}
-      </span>
-    );
-    return renderWith(el, render, state);
-  }
-);
+  const el = (
+    <span ref={ref} {...scrubAreaProps} {...(rest as React.HTMLAttributes<HTMLSpanElement>)}>
+      {children}
+    </span>
+  );
+  return renderWith(el, render, state);
+});
 
 // ── ScrubAreaCursor ───────────────────────────────────────────────────────────
 //
@@ -325,21 +347,18 @@ interface FormattedProps extends React.HTMLAttributes<HTMLSpanElement> {
   render?: RenderProp;
 }
 
-const Formatted = forwardRef<HTMLSpanElement, FormattedProps>(
-  function NumberFieldFormatted({ render, ...rest }, ref) {
-    const { state } = useNumberFieldContext();
-    const el = (
-      <span
-        ref={ref}
-        aria-hidden="true"
-        {...rest}
-      >
-        {state.inputValue}
-      </span>
-    );
-    return renderWith(el, render, state);
-  }
-);
+const Formatted = forwardRef<HTMLSpanElement, FormattedProps>(function NumberFieldFormatted(
+  { render, ...rest },
+  ref
+) {
+  const { state } = useNumberFieldContext();
+  const el = (
+    <span ref={ref} aria-hidden="true" {...rest}>
+      {state.inputValue}
+    </span>
+  );
+  return renderWith(el, render, state);
+});
 
 // ── Namespace export ──────────────────────────────────────────────────────────
 

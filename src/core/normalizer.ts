@@ -29,9 +29,7 @@ export interface LocaleConfig {
 export function registerLocale(config: LocaleConfig): void {
   if (!config.digitBlocks) return;
   for (const block of config.digitBlocks) {
-    const already = registeredBlocks.some(
-      ([s]) => s === block[0]
-    );
+    const already = registeredBlocks.some(([s]) => s === block[0]);
     if (!already) registeredBlocks.push(block);
   }
 }
@@ -52,8 +50,8 @@ export function normalizeDigits(input: string): string {
       }
     }
     // Fallback: let JS try to parse it as a decimal digit
-    const digit = parseInt(ch, 10);
-    return isNaN(digit) ? ch : String(digit);
+    const digit = Number.parseInt(ch, 10);
+    return Number.isNaN(digit) ? ch : String(digit);
   });
 }
 

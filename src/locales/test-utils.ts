@@ -19,7 +19,11 @@ export function getLocaleInfo(locale: string): LocaleInfo {
 /**
  * Format a number with the given locale.
  */
-export function fmt(locale: string, value: number, formatOptions?: Intl.NumberFormatOptions): string {
+export function fmt(
+  locale: string,
+  value: number,
+  formatOptions?: Intl.NumberFormatOptions
+): string {
   return createFormatter({ locale, formatOptions }).format(value);
 }
 
@@ -34,7 +38,11 @@ export function parse(locale: string, input: string): number | null {
  * Round-trip verification: format a number, then parse it back.
  * Returns true if the parsed value equals the original.
  */
-export function roundTrip(locale: string, value: number, formatOptions?: Intl.NumberFormatOptions): boolean {
+export function roundTrip(
+  locale: string,
+  value: number,
+  formatOptions?: Intl.NumberFormatOptions
+): boolean {
   const formatter = createFormatter({ locale, formatOptions });
   const parser = createParser({ locale, formatOptions });
   const formatted = formatter.format(value);

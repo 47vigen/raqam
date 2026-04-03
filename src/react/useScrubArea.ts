@@ -74,10 +74,7 @@ export function useScrubArea(
     } else if (dir === "vertical") {
       delta = -e.movementY;
     } else {
-      delta =
-        Math.abs(e.movementX) >= Math.abs(e.movementY)
-          ? e.movementX
-          : -e.movementY;
+      delta = Math.abs(e.movementX) >= Math.abs(e.movementY) ? e.movementX : -e.movementY;
     }
 
     accumulatorRef.current += delta;
@@ -139,27 +136,20 @@ export function useScrubArea(
   );
 
   // Keyboard support: arrow keys while scrub area is focused
-  const onKeyDown = useCallback(
-    (e: React.KeyboardEvent) => {
-      if (stateRef.current.options.disabled || stateRef.current.options.readOnly) return;
-      if (e.key === "ArrowRight" || e.key === "ArrowUp") {
-        e.preventDefault();
-        stateRef.current.increment();
-      } else if (e.key === "ArrowLeft" || e.key === "ArrowDown") {
-        e.preventDefault();
-        stateRef.current.decrement();
-      }
-    },
-    []
-  );
+  const onKeyDown = useCallback((e: React.KeyboardEvent) => {
+    if (stateRef.current.options.disabled || stateRef.current.options.readOnly) return;
+    if (e.key === "ArrowRight" || e.key === "ArrowUp") {
+      e.preventDefault();
+      stateRef.current.increment();
+    } else if (e.key === "ArrowLeft" || e.key === "ArrowDown") {
+      e.preventDefault();
+      stateRef.current.decrement();
+    }
+  }, []);
 
   // Cursor CSS based on direction
   const cursorStyle =
-    direction === "horizontal"
-      ? "ew-resize"
-      : direction === "vertical"
-      ? "ns-resize"
-      : "move";
+    direction === "horizontal" ? "ew-resize" : direction === "vertical" ? "ns-resize" : "move";
 
   const scrubAreaProps = {
     role: "slider",
