@@ -1,5 +1,11 @@
 # raqam Changelog
 
+## 0.2.2
+
+### Patch Changes
+
+- 1f007eb: Align DEFINITION.md, Playwright fixture, and phase worklogs with the published `raqam` package name.
+
 ## 0.2.1
 
 ### Patch Changes

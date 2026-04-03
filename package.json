@@ -1,6 +1,6 @@
 {
   "name": "raqam",
-  "version": "0.2.1",
+  "version": "0.2.2",
   "description": "The definitive React number input: live formatting, full i18n, headless, accessible",
   "type": "module",
   "sideEffects": false,
