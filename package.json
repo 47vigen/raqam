@@ -79,8 +79,8 @@
     "test:e2e": "playwright test -c playwright-ct.config.ts",
     "test:e2e:ui": "playwright test -c playwright-ct.config.ts --ui",
     "test:e2e:debug": "playwright test -c playwright-ct.config.ts --headed --project=chromium",
-    "docs:dev": "cd docs && astro dev",
-    "docs:build": "cd docs && astro build",
+    "docs:dev": "cd docs && pnpm astro dev",
+    "docs:build": "cd docs && pnpm astro build",
     "release:beta": "changeset version --snapshot beta && changeset publish --tag beta"
   },
   "keywords": [
@@ -125,10 +125,5 @@
     "tsup": "^8.4.0",
     "typescript": "^5.8.3",
     "vitest": "^3.1.1"
-  },
-  "pnpm": {
-    "onlyBuiltDependencies": [
-      "esbuild"
-    ]
   }
 }
