@@ -99,7 +99,10 @@ test.describe("Typing decimals", () => {
     const input = component.getByTestId("input");
     await input.click();
     await input.pressSequentially("23.", { delay: 50 });
-    await input.press("Tab"); // trigger blur
+    // Use el.blur() directly — press("Tab") is unreliable in Firefox CT when
+    // the next focusable element (e.g. a disabled button) is not in tab order,
+    // causing focus to escape the iframe without firing the blur event.
+    await input.evaluate((el) => (el as HTMLInputElement).blur());
     await expect(input).toHaveValue("");
     await expect(input).not.toHaveAttribute("aria-valuenow");
   });
@@ -285,7 +288,7 @@ test.describe("Keyboard interactions", () => {
     const input = component.getByTestId("input");
     await input.click();
     await input.pressSequentially("23.", { delay: 50 });
-    await input.press("Tab"); // blur
+    await input.evaluate((el) => (el as HTMLInputElement).blur());
     await expect(input).toHaveValue("");
     await expect(input).not.toHaveAttribute("aria-valuenow");
   });
@@ -295,7 +298,7 @@ test.describe("Keyboard interactions", () => {
     const input = component.getByTestId("input");
     await input.click();
     await input.pressSequentially("1234", { delay: 50 });
-    await input.press("Tab"); // blur triggers commit
+    await input.evaluate((el) => (el as HTMLInputElement).blur());
     await expect(input).toHaveValue("1,234");
   });
 });
