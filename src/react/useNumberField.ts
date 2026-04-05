@@ -368,6 +368,30 @@ export function useNumberField(
       // This must be handled in keydown — by the time onChange fires, the
       // browser has already removed the separator character, making it
       // impossible to detect what was deleted.
+      // Smart decimal: when the user types the decimal separator but one already
+      // exists in the formatted value (e.g. "1.00" with fixedDecimalScale),
+      // move the cursor to just after the decimal separator instead of inserting
+      // a duplicate. This enables the financial UX pattern:
+      //   "1.00" → type "." → cursor jumps after "." → type "5" → "1.50"
+      // Same applies for negative values: "-1.00" → type "." → cursor after "."
+      if (!e.metaKey && !e.ctrlKey && !e.altKey && allowDecimal) {
+        const localeInfo = formatter.getLocaleInfo();
+        // Match only the locale's decimal separator key (e.g. "." for en-US,
+        // "," for de-DE). Do NOT also match "." universally — in comma-decimal
+        // locales "." is the grouping separator and should not trigger a jump.
+        if (key === localeInfo.decimalSeparator) {
+          const input = inputRef.current;
+          if (input) {
+            const decPos = input.value.indexOf(localeInfo.decimalSeparator);
+            if (decPos !== -1) {
+              e.preventDefault();
+              input.setSelectionRange(decPos + 1, decPos + 1);
+              return;
+            }
+          }
+        }
+      }
+
       if (key === "Backspace" && !e.shiftKey && !e.altKey && !e.metaKey && !e.ctrlKey) {
         const input = inputRef.current;
         if (input) {
