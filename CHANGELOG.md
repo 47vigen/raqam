@@ -1,5 +1,20 @@
 # raqam Changelog
 
+## 0.2.3
+
+### Patch Changes
+
+- fix: typing the decimal separator when one already exists moves cursor past it
+
+  When using `fixedDecimalScale` (e.g. value displays as "1.00"), pressing the
+  decimal key no longer inserts a duplicate separator that invalidates the value
+  and clears the field on blur. The cursor now jumps to just after the existing
+  decimal point, enabling the standard financial input pattern:
+  "1.00" → type "." → cursor after "." → type "5" → "1.50".
+
+  Locale-aware: only the locale's own decimal separator triggers the jump
+  (e.g. "," in de-DE), so the grouping separator is unaffected.
+
 ## 0.2.2
 
 ### Patch Changes
@@ -17,7 +32,6 @@
 ### Minor Changes
 
 - d1c28e3: Phase 5 — Polish and release:
-
   - **Bundle optimization**: `raqam/core` reduced to < 2 KB gzipped; removed `isNonLatinDigit` from core exports (still available via direct `raqam/core/normalizer` import in tests); split tsup config so `raqam/core` (the server-safe entry) does not receive a `"use client"` banner
   - **`"use client"` directive**: Fixed — now correctly prepended to `dist/index.js`, `dist/index.cjs`, `dist/react.js`, `dist/react.cjs` via post-build step (esbuild 0.25+ strips source-level directives from bundled output)
   - **Storybook**: Added `preview.ts` with `layout: "centered"`, table-of-contents, and control matchers; new `HookAPI.stories.tsx` demonstrating `useNumberFieldState` + `useNumberField` hook pair directly
