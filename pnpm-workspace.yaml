@@ -4,5 +4,6 @@ packages:
 
 onlyBuiltDependencies:
   - "@biomejs/biome"
+  - es5-ext
   - esbuild
   - sharp
