@@ -64,9 +64,14 @@ import json, tempfile
 
 def run_test(test):
     """Run one behavioral test file and read vitest's JSON result FROM A FILE
-    (robust to any stdout wrapping). Returns (ran, pass_n, fail_n) where `ran` is
-    True only if vitest actually executed a suite — so a missing-dep / broken
-    install (file never written) is distinguished from a real assertion failure."""
+    (robust to any stdout wrapping). Returns (ran, fail_tests, fail_suites):
+      - ran=False        -> vitest never produced a result (missing-dep / install
+                            error) -> inconclusive.
+      - fail_tests > 0    -> real ASSERTION failures (the only thing that proves a
+                            test caught the regression).
+      - fail_suites > 0 with fail_tests == 0 -> the suite failed to LOAD (a
+                            transform/import/compile error from the mutation), which
+                            is NOT an assertion result -> inconclusive."""
     out_file = os.path.join(tempfile.gettempdir(), "raqam_mutation_result.json")
     try:
         os.remove(out_file)
@@ -81,12 +86,8 @@ def run_test(test):
         d = json.load(open(out_file))
     except Exception:
         return (False, 0, 0)
-    total = d.get("numTotalTests", 0)
-    suites = d.get("numTotalTestSuites", 0)
-    # A failed suite (compile error from the mutation) counts as caught too.
-    failed = d.get("numFailedTests", 0) + d.get("numFailedTestSuites", 0)
-    ran = total > 0 or suites > 0
-    return (ran, d.get("numPassedTests", 0), failed)
+    ran = d.get("numTotalTests", 0) > 0 or d.get("numTotalTestSuites", 0) > 0
+    return (ran, d.get("numFailedTests", 0), d.get("numFailedTestSuites", 0))
 
 # Warn if a mutated file is dirty: we restore from the in-memory buffer (so local
 # edits are preserved), but a green baseline must reflect the committed fix.
@@ -100,10 +101,10 @@ if dirty:
 # inconclusive for it (the test/environment is broken, not the mutation).
 baseline_ok = {}
 for test in sorted({m[4] for m in MUT}):
-    ran, _p, f = run_test(test)
-    baseline_ok[test] = ran and f == 0
+    ran, ft, fs = run_test(test)
+    baseline_ok[test] = ran and ft == 0 and fs == 0
     if not baseline_ok[test]:
-        print(f"BASELINE NOT GREEN for {test} (ran={ran}, fail={f}) — its mutations are INCONCLUSIVE")
+        print(f"BASELINE NOT GREEN for {test} (ran={ran}, failTests={ft}, failSuites={fs}) — its mutations are INCONCLUSIVE")
 
 results = []
 for mid, fpath, old, new, test in MUT:
@@ -116,11 +117,13 @@ for mid, fpath, old, new, test in MUT:
     try:
         with open(fpath, "w") as fh:
             fh.write(orig.replace(old, new, 1))
-        ran, _p, f = run_test(test)
+        ran, ft, fs = run_test(test)
         if not ran:
-            results.append((mid, "INCONCLUSIVE (runner/compile error, not an assertion)"))
-        elif f > 0:
-            results.append((mid, f"RED (caught by {f} assertion failure{'s' if f != 1 else ''})"))
+            results.append((mid, "INCONCLUSIVE (runner/setup error — vitest did not run)"))
+        elif ft > 0:
+            results.append((mid, f"RED (caught by {ft} assertion failure{'s' if ft != 1 else ''})"))
+        elif fs > 0:
+            results.append((mid, "INCONCLUSIVE (suite failed to load — compile error, not an assertion)"))
         else:
             results.append((mid, "GREEN (GAP! the test stayed green)"))
     finally:
