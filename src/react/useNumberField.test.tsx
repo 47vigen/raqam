@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { renderHook } from "@testing-library/react";
+import { renderHook, act } from "@testing-library/react";
 import { useRef } from "react";
 import { useNumberField } from "./useNumberField.js";
 import { useNumberFieldState } from "./useNumberFieldState.js";
@@ -26,12 +26,23 @@ describe("useNumberField — aria-labelledby resolution", () => {
     expect(result.current.groupProps["aria-labelledby"]).toBeUndefined();
   });
 
-  it("falls back to the internal label id when no accessible name is provided", () => {
+  it("omits aria-labelledby until a label element is actually mounted", () => {
+    // No element has spread labelProps yet, so there is nothing for
+    // aria-labelledby to point at — it must stay unset rather than dangle.
     const { result } = renderAria({ locale: "en-US", id: "amount" });
-    // The fallback points at the label element the consumer is expected to
-    // render via labelProps — labelProps.id matches, so the ref is not dangling.
-    expect(result.current.inputProps["aria-labelledby"]).toBe("amount-label");
     expect(result.current.labelProps.id).toBe("amount-label");
+    expect(result.current.inputProps["aria-labelledby"]).toBeUndefined();
+    expect(result.current.groupProps["aria-labelledby"]).toBeUndefined();
+  });
+
+  it("wires aria-labelledby to the label once labelProps' ref mounts", () => {
+    const { result } = renderAria({ locale: "en-US", id: "amount" });
+    // Simulate the label element mounting (any element that spreads labelProps).
+    act(() => {
+      result.current.labelProps.ref?.(document.createElement("label"));
+    });
+    expect(result.current.inputProps["aria-labelledby"]).toBe("amount-label");
+    expect(result.current.groupProps["aria-labelledby"]).toBe("amount-label");
     expect(result.current.inputProps["aria-labelledby"]).toBe(
       result.current.labelProps.id
     );
