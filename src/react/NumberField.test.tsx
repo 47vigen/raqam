@@ -321,16 +321,18 @@ describe("NumberField copy behavior", () => {
 });
 
 describe("NumberField allowOutOfRange", () => {
-  it("allows value beyond maxValue when allowOutOfRange=true", () => {
+  it("allows value beyond maxValue when allowOutOfRange=true", async () => {
+    const user = userEvent.setup();
     render(
       <NumberField.Root locale="en-US" maxValue={100} allowOutOfRange clampBehavior="blur">
         <NumberField.Input data-testid="input" />
       </NumberField.Root>
     );
     const input = screen.getByTestId("input");
-    // Simulate typing "150" and blurring
-    fireEvent.change(input, { target: { value: "150" } });
-    fireEvent.blur(input);
+    // Really type "150" and blur — must not clamp down to 100.
+    await user.click(input);
+    await user.type(input, "150");
+    await user.tab();
     expect(input).toHaveValue("150");
   });
 
