@@ -30,6 +30,8 @@ describe("NumberField.Root", () => {
     expect(label).toBeInTheDocument();
     // Label should point to input via htmlFor
     expect(label.getAttribute("for")).toBe(input.getAttribute("id"));
+    // ...and the input's aria-labelledby must point back at a real label id
+    expect(input.getAttribute("aria-labelledby")).toBe(label.getAttribute("id"));
   });
 
   it("renders increment and decrement buttons", () => {
