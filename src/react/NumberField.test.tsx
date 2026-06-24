@@ -191,6 +191,28 @@ describe("NumberField ARIA attributes", () => {
     expect(screen.getByTestId("group")).toHaveAttribute("aria-labelledby", labelId);
     expect(screen.getByTestId("input")).toHaveAttribute("aria-labelledby", labelId);
   });
+
+  it("composes a consumer ref on a render-prop element with label registration", () => {
+    // A ref on the render element must not replace the registration ref — both
+    // must fire, so the consumer gets their node AND the group/input stay wired.
+    const myRef = vi.fn();
+    render(
+      <NumberField.Root locale="en-US">
+        <NumberField.Label render={<label ref={myRef} data-testid="rp-ref-label" />}>
+          Amount
+        </NumberField.Label>
+        <NumberField.Group data-testid="group">
+          <NumberField.Input data-testid="input" />
+        </NumberField.Group>
+      </NumberField.Root>
+    );
+    expect(myRef).toHaveBeenCalled();
+    expect(myRef.mock.calls[0][0]).toBeInstanceOf(HTMLLabelElement);
+    const labelId = screen.getByTestId("rp-ref-label").getAttribute("id");
+    expect(labelId).toBeTruthy();
+    expect(screen.getByTestId("group")).toHaveAttribute("aria-labelledby", labelId);
+    expect(screen.getByTestId("input")).toHaveAttribute("aria-labelledby", labelId);
+  });
 });
 
 describe("NumberField input type", () => {

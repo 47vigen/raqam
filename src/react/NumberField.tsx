@@ -40,14 +40,31 @@ function renderWith(
     return render(baseProps, state);
   }
 
-  // Element form: clone with merged props
-  return React.cloneElement(
-    render,
-    Object.assign({}, baseProps, render.props as Record<string, unknown>)
-  );
+  // Element form: clone with merged props. Compose the render element's own ref
+  // with forwardedRef so a consumer ref (e.g. `render={<label ref={x} />}`)
+  // doesn't replace the label-registration ref — on React 19, where `ref` is a
+  // regular prop, the plain merge would otherwise let it win.
+  const merged = Object.assign({}, baseProps, render.props as Record<string, unknown>);
+  const renderRef = getElementRef(render);
+  const composedRef =
+    forwardedRef != null && renderRef != null
+      ? mergeRefs(forwardedRef, renderRef)
+      : (renderRef ?? forwardedRef);
+  if (composedRef != null) merged.ref = composedRef;
+  return React.cloneElement(render, merged);
 }
 
-// ── Ref merge helper ──────────────────────────────────────────────────────────
+// ── Ref helpers ───────────────────────────────────────────────────────────────
+
+// React 19 exposes a React element's `ref` as a regular prop; React ≤18 stores
+// it on the element itself (and reading `element.ref` on React 19 logs a
+// deprecation warning), so branch on the version to read it without warnings.
+const REF_IN_PROPS = Number.parseInt(React.version, 10) >= 19;
+
+function getElementRef(el: React.ReactElement): React.Ref<unknown> | undefined {
+  if (REF_IN_PROPS) return (el.props as { ref?: React.Ref<unknown> }).ref;
+  return (el as unknown as { ref?: React.Ref<unknown> }).ref;
+}
 
 /** Compose multiple refs (callback or object) into one callback ref. */
 function mergeRefs<T>(...refs: (React.Ref<T> | undefined)[]): React.RefCallback<T> {
