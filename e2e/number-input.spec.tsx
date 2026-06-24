@@ -84,17 +84,18 @@ test.describe("Typing decimals", () => {
     await expect(input).toHaveAttribute("aria-valuenow", "23.58");
   });
 
-  test("preserves intermediate '23.' without reformatting", async ({ mount }) => {
+  test("preserves intermediate '23.' while typing", async ({ mount }) => {
     const component = await mount(<NumberInputField />);
     const input = component.getByTestId("input");
     await input.click();
     await input.pressSequentially("23.", { delay: 50 });
+    // Display preserved as typed, but the value already resolves to 23 so a
+    // blur never wipes it (no data loss on a trailing decimal point).
     await expect(input).toHaveValue("23.");
-    // Intermediate — no valuenow
-    await expect(input).not.toHaveAttribute("aria-valuenow");
+    await expect(input).toHaveAttribute("aria-valuenow", "23");
   });
 
-  test("blur on intermediate '23.' clears the field", async ({ mount }) => {
+  test("blur on intermediate '23.' commits the integer part (no data loss)", async ({ mount }) => {
     const component = await mount(<NumberInputField />);
     const input = component.getByTestId("input");
     await input.click();
@@ -103,8 +104,8 @@ test.describe("Typing decimals", () => {
     // the next focusable element (e.g. a disabled button) is not in tab order,
     // causing focus to escape the iframe without firing the blur event.
     await input.evaluate((el) => (el as HTMLInputElement).blur());
-    await expect(input).toHaveValue("");
-    await expect(input).not.toHaveAttribute("aria-valuenow");
+    await expect(input).toHaveValue("23");
+    await expect(input).toHaveAttribute("aria-valuenow", "23");
   });
 
   test("types decimal on field containing a value", async ({ mount }) => {
@@ -283,14 +284,14 @@ test.describe("Keyboard interactions", () => {
     await expect(input).toHaveAttribute("aria-valuenow", "90");
   });
 
-  test("blur reformats intermediate '23.' to empty", async ({ mount }) => {
+  test("blur on intermediate '23.' commits to '23'", async ({ mount }) => {
     const component = await mount(<NumberInputField />);
     const input = component.getByTestId("input");
     await input.click();
     await input.pressSequentially("23.", { delay: 50 });
     await input.evaluate((el) => (el as HTMLInputElement).blur());
-    await expect(input).toHaveValue("");
-    await expect(input).not.toHaveAttribute("aria-valuenow");
+    await expect(input).toHaveValue("23");
+    await expect(input).toHaveAttribute("aria-valuenow", "23");
   });
 
   test("blur reformats valid number with grouping", async ({ mount }) => {
