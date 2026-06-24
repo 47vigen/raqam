@@ -129,6 +129,37 @@ computeNewCursorPosition("1234", 4, "1,234", info);
 // 5
 ```
 
+## Result types
+
+The formatter and parser return these shapes (all exported as types from
+`raqam`, `raqam/core`, and `raqam/server`):
+
+```ts
+interface LocaleInfo {
+  decimalSeparator: string;   // "." en-US, "," de-DE, "٫" fa-IR
+  groupingSeparator: string;  // "," en-US, "." de-DE, "٬" fa-IR
+  minusSign: string;          // usually "-", but locale-specific
+  zero: string;               // "0" Latin, "۰" Persian, …
+  isRTL: boolean;             // true for ar/he/fa/ur/…
+}
+
+interface ParseResult {
+  value: number | null;       // parsed number, or null if empty/invalid
+  isValid: boolean;           // true for a complete, valid number
+  isIntermediate: boolean;    // valid-but-incomplete ("1.", "1.50", "-")
+}
+
+interface FormatResult {
+  formatted: string;          // the full formatted string
+  parts: Intl.NumberFormatPart[];
+}
+
+type CaretBoundary = boolean[]; // length = formatted.length + 1
+```
+
+`isIntermediate` is what powers live formatting — see
+[Formatting & Behavior → Intermediate states](/guides/formatting#intermediate-states).
+
 ## Presets from the core entrypoint
 
 `presets` is also available from `raqam/core` and `raqam/server`, so you can

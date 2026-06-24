@@ -69,8 +69,9 @@ Use the simplest path that fits the user’s request:
 3. **Need display-only formatting in React:** `useNumberFieldFormat`.
 4. **Need formatting/parsing in RSC, SSR, Edge, or non-React code:** `raqam/server` / `raqam/core`.
 5. **Need non-Latin digit input:** import only the needed locale plugin (`raqam/locales/fa`, etc.).
-6. **Need analytics/change metadata:** use `onValueChange`, not raw `onChange`.
-7. **Need arbitrary-precision finance flows:** use `onRawChange` / `state.rawValue`, or custom `parseValue` / `formatValue`.
+6. **Need analytics/change metadata:** use `onValueChange` (every change + `reason`), not raw `onChange`.
+7. **Need the settled value only (persist/save/request):** use `onValueCommitted` (fires on blur/Enter).
+8. **Need arbitrary-precision finance flows:** use `onRawChange` / `state.rawValue`, or custom `parseValue` / `formatValue`.
 
 Avoid steering users toward undocumented or stale APIs when a documented path already exists.
 
@@ -78,12 +79,18 @@ Avoid steering users toward undocumented or stale APIs when a documented path al
 
 - **`locale`:** BCP 47 tag; drives `Intl.NumberFormat` / parsing.
 - **`formatOptions`:** standard `Intl.NumberFormatOptions`; use **`presets`** for common cases — [Format presets](https://47vigen.github.io/raqam/api/presets/).
-- **Controlled vs uncontrolled:** `value`/`onChange` vs `defaultValue`. `onChange` fires whenever the parsed numeric value changes; use `onValueChange` when you need `{ reason, formattedValue }` metadata — see [Getting Started](https://47vigen.github.io/raqam/getting-started/).
-- **Constraints:** `minValue`, `maxValue`, `step`, `largeStep`, `smallStep`, `clampBehavior`, `allowOutOfRange`, `allowNegative`, `allowDecimal`, `fixedDecimalScale`.
+- **Controlled vs uncontrolled:** `value`/`onChange` vs `defaultValue`. `onChange` fires whenever the parsed numeric value changes; use `onValueChange` when you need `{ reason, formattedValue }` metadata, or **`onValueCommitted`** when you only want the settled value (fires on blur → `reason:"blur"`, or Enter → `reason:"keyboard"`). See [Getting Started](https://47vigen.github.io/raqam/getting-started/).
+- **Change reasons** (`onValueChange` details.reason): `"input"`, `"clear"` (edit empties the field), `"paste"`, `"keyboard"`, `"increment"`, `"decrement"`, `"wheel"`, `"scrub"`, `"blur"`.
+- **Constraints:** `minValue`, `maxValue`, `step`, `largeStep` (default `step×10`), `smallStep` (default `step×0.1`), `clampBehavior` (`"blur"` clamp on blur / `"strict"` reject out-of-range keystrokes / `"none"`), `allowOutOfRange` (keep + commit out-of-range, set `aria-invalid`), `allowNegative`, `allowDecimal`, `fixedDecimalScale` (needs `maximumFractionDigits`).
+- **Live formatting:** formats on every keystroke with a cursor-safe algorithm; **intermediate** values (`1.`, `12.50`, `-`, `.5`) are kept as typed and only normalized on blur. **`compact`/`scientific`/`engineering` notation format on blur** (not live). Percent fields store the *fraction* (`42%` ⇒ `0.42`). Full details: [Formatting & Behavior](https://47vigen.github.io/raqam/guides/formatting/).
+- **Paste:** strips currency symbols, parses scientific/compact (`1e3`, `1.5K`) and accounting parens `(1,234)` ⇒ negative; unparseable pastes are discarded.
+- **Clipboard:** `copyBehavior` `"formatted"` (default) / `"raw"` / `"number"`.
+- **Wheel:** opt-in `allowMouseWheel`; only nudges while the input is focused.
 - **Validation:** `validate` returning `true` / error string; pairs with `NumberField.ErrorMessage`.
 - **Precision / finance:** `onRawChange` and `state.rawValue` for exact string before float conversion; optional custom `formatValue` / `parseValue`.
 - **Display-only:** [useNumberFieldFormat](https://47vigen.github.io/raqam/api/use-number-field-format/) on the client; **`createFormatter` from `raqam/server`** on the server.
 - **Forms:** for native form submission, put `name` on `NumberField.Root` and render `NumberField.HiddenInput`.
+- **Hook API gotcha:** when using `useNumberFieldState` + `useNumberField` directly, pass the **same formatting options to both** (the behavior hook builds its own formatter/parser). The `NumberField.*` components do this for you.
 
 ## Locales and RTL
 
@@ -134,6 +141,7 @@ Avoid steering users toward undocumented or stale APIs when a documented path al
 | useNumberFieldState | [https://47vigen.github.io/raqam/api/use-number-field-state/](https://47vigen.github.io/raqam/api/use-number-field-state/) |
 | useNumberField | [https://47vigen.github.io/raqam/api/use-number-field/](https://47vigen.github.io/raqam/api/use-number-field/) |
 | NumberField components | [https://47vigen.github.io/raqam/api/components/](https://47vigen.github.io/raqam/api/components/) |
+| Formatting & Behavior | [https://47vigen.github.io/raqam/guides/formatting/](https://47vigen.github.io/raqam/guides/formatting/) |
 | useNumberFieldFormat | [https://47vigen.github.io/raqam/api/use-number-field-format/](https://47vigen.github.io/raqam/api/use-number-field-format/) |
 | Format presets | [https://47vigen.github.io/raqam/api/presets/](https://47vigen.github.io/raqam/api/presets/) |
 | Core utilities | [https://47vigen.github.io/raqam/api/core-utilities/](https://47vigen.github.io/raqam/api/core-utilities/) |

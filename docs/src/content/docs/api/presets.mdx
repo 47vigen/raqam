@@ -144,6 +144,21 @@ presets.unit("kilometer")
 Unit formatting. Any CLDR unit identifier works: `"kilometer"`,
 `"liter"`, `"celsius"`, `"kilometer-per-hour"`, etc.
 
+## Notation presets format on blur
+
+`compact`, `compactLong`, `scientific`, and `engineering` produce strings
+(`1.2K`, `1.23E4`) whose characters collide with continued typing, so raqam
+keeps your raw digits live while editing and only applies the notation on blur.
+This is automatic — you don't need to set `liveFormat`. See
+[Formatting & Behavior → Notation](/guides/formatting#notation-that-formats-on-blur).
+
+`percent` stores the **fraction**: a displayed `42%` is a value of `0.42`, and
+typing `50` yields `0.5`.
+
+`financial` already sets `minimumFractionDigits`/`maximumFractionDigits` to 2, so
+it shows two decimals on its own. Adding the `fixedDecimalScale` prop keeps the
+two trailing zeros locked in even as the user edits.
+
 ## Composing with your own options
 
 Presets are plain objects — spread them to override:

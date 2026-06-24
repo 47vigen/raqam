@@ -39,15 +39,18 @@ import { useNumberFieldState, useNumberField } from 'raqam'
 import { useRef } from 'react'
 
 function PriceInput() {
-  const state = useNumberFieldState({
+  // Share one options object — useNumberField builds its own formatter/parser,
+  // so it needs the same formatting options as useNumberFieldState.
+  const options = {
     locale: 'en-US',
     formatOptions: { style: 'currency', currency: 'USD' },
     minValue: 0,
     defaultValue: 1234.56,
-  })
+  }
+  const state = useNumberFieldState(options)
   const inputRef = useRef(null)
   const { inputProps, labelProps, incrementButtonProps, decrementButtonProps } =
-    useNumberField({ label: 'Price' }, state, inputRef)
+    useNumberField({ ...options, label: 'Price' }, state, inputRef)
 
   return (
     <div>
