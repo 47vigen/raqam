@@ -232,6 +232,31 @@ describe("NumberField ARIA attributes", () => {
     unmount();
     expect(cleanup).toHaveBeenCalledTimes(1);
   });
+
+  it("keeps a render-element consumer ref stable across the hasLabel re-render", () => {
+    // The composed ref for the element render-prop form must be memoized: an
+    // unstable identity would detach/reattach on the hasLabel update and run the
+    // consumer cleanup early. Expect a single attach and a single cleanup.
+    const cleanup = vi.fn();
+    const refWithCleanup = vi.fn(() => cleanup);
+    const { unmount } = render(
+      <NumberField.Root locale="en-US">
+        <NumberField.Label render={<label ref={refWithCleanup} data-testid="cl-el" />}>
+          Amount
+        </NumberField.Label>
+        <NumberField.Group data-testid="group">
+          <NumberField.Input data-testid="input" />
+        </NumberField.Group>
+      </NumberField.Root>
+    );
+    // Registration still took effect (group is wired) without churning the ref.
+    const labelId = screen.getByTestId("cl-el").getAttribute("id");
+    expect(screen.getByTestId("group")).toHaveAttribute("aria-labelledby", labelId);
+    expect(refWithCleanup).toHaveBeenCalledTimes(1);
+    expect(cleanup).not.toHaveBeenCalled();
+    unmount();
+    expect(cleanup).toHaveBeenCalledTimes(1);
+  });
 });
 
 describe("NumberField input type", () => {

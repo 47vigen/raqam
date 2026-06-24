@@ -22,8 +22,10 @@ import { useScrubArea } from "./useScrubArea.js";
  * `forwardedRef` is threaded through explicitly because React 18 keeps `ref`
  * out of `element.props`, so a render-prop element would otherwise lose refs the
  * default element depends on — e.g. the label-registration ref carried by
- * `labelProps`. Spread it onto a DOM element (or a ref-forwarding component) so
- * the ref still attaches.
+ * `labelProps`. When provided, it takes precedence over the render element's own
+ * `ref`; callers that need to keep a consumer ref must compose it into
+ * `forwardedRef` themselves (see `<NumberField.Label>`), where it can be
+ * memoized for a stable identity.
  */
 function renderWith(
   defaultElement: React.ReactElement,
@@ -40,17 +42,9 @@ function renderWith(
     return render(baseProps, state);
   }
 
-  // Element form: clone with merged props. Compose the render element's own ref
-  // with forwardedRef so a consumer ref (e.g. `render={<label ref={x} />}`)
-  // doesn't replace the label-registration ref — on React 19, where `ref` is a
-  // regular prop, the plain merge would otherwise let it win.
+  // Element form: clone with merged props.
   const merged = Object.assign({}, baseProps, render.props as Record<string, unknown>);
-  const renderRef = getElementRef(render);
-  const composedRef =
-    forwardedRef != null && renderRef != null
-      ? mergeRefs(forwardedRef, renderRef)
-      : (renderRef ?? forwardedRef);
-  if (composedRef != null) merged.ref = composedRef;
+  if (forwardedRef != null) merged.ref = forwardedRef;
   return React.cloneElement(render, merged);
 }
 
@@ -216,13 +210,14 @@ const Label = forwardRef<HTMLLabelElement, LabelProps>(function NumberFieldLabel
   ref
 ) {
   const { aria, state } = useNumberFieldContext();
-  // labelProps carries a registration ref; merge it with the forwarded ref so
-  // both fire (the registration is what keeps Input/Group's aria-labelledby).
-  // Pass the merged ref to renderWith too, so it survives the render-prop path
-  // where React 18 would otherwise drop it. Memoized for a stable identity so
-  // React doesn't detach/reattach (and re-run ref cleanups) every render.
+  // labelProps carries a registration ref; merge it with the forwarded ref and,
+  // for the element render-prop form, the consumer's own ref on that element, so
+  // all fire (the registration is what keeps Input/Group's aria-labelledby).
+  // Memoized for a stable identity so React doesn't detach/reattach (and re-run
+  // ref cleanups) every render — including across the hasLabel re-render.
   const { ref: labelRef, ...labelProps } = aria.labelProps;
-  const mergedRef = useMemo(() => mergeRefs(ref, labelRef), [ref, labelRef]);
+  const renderRef = React.isValidElement(render) ? getElementRef(render) : undefined;
+  const mergedRef = useMemo(() => mergeRefs(ref, labelRef, renderRef), [ref, labelRef, renderRef]);
   const el = (
     <label ref={mergedRef} {...labelProps} {...rest}>
       {children}
