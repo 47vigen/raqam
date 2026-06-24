@@ -18,26 +18,32 @@ import { useScrubArea } from "./useScrubArea.js";
 /**
  * Merge component props with a `render` prop.
  * Accepts either a React element or a render function.
+ *
+ * `forwardedRef` is threaded through explicitly because React 18 keeps `ref`
+ * out of `element.props`, so a render-prop element would otherwise lose refs the
+ * default element depends on — e.g. the label-registration ref carried by
+ * `labelProps`. Spread it onto a DOM element (or a ref-forwarding component) so
+ * the ref still attaches.
  */
 function renderWith(
   defaultElement: React.ReactElement,
   render: RenderProp | undefined,
-  state: NumberFieldState
+  state: NumberFieldState,
+  forwardedRef?: React.Ref<unknown>
 ): React.ReactElement {
   if (!render) return defaultElement;
 
+  const baseProps = { ...(defaultElement.props as Record<string, unknown>) };
+  if (forwardedRef != null) baseProps.ref = forwardedRef;
+
   if (typeof render === "function") {
-    return render(defaultElement.props as Record<string, unknown>, state);
+    return render(baseProps, state);
   }
 
   // Element form: clone with merged props
   return React.cloneElement(
     render,
-    Object.assign(
-      {},
-      defaultElement.props as Record<string, unknown>,
-      render.props as Record<string, unknown>
-    )
+    Object.assign({}, baseProps, render.props as Record<string, unknown>)
   );
 }
 
@@ -125,6 +131,8 @@ const Root = forwardRef<HTMLDivElement, NumberFieldRootProps>(function NumberFie
   // returns the correct reason at the time onChange fires.
   const wrappedProps = {
     ...props,
+    // Forward onValueCommitted to the behavior hook, which fires it on blur/Enter.
+    onValueCommitted,
     onChange: (value: number | null) => {
       props.onChange?.(value);
       if (onValueChangeRef.current && stateRef.current) {
@@ -175,13 +183,16 @@ const Label = forwardRef<HTMLLabelElement, LabelProps>(function NumberFieldLabel
   const { aria, state } = useNumberFieldContext();
   // labelProps carries a registration ref; merge it with the forwarded ref so
   // both fire (the registration is what keeps Input/Group's aria-labelledby).
+  // Pass the merged ref to renderWith too, so it survives the render-prop path
+  // where React 18 would otherwise drop it.
   const { ref: labelRef, ...labelProps } = aria.labelProps;
+  const mergedRef = mergeRefs(ref, labelRef);
   const el = (
-    <label ref={mergeRefs(ref, labelRef)} {...labelProps} {...rest}>
+    <label ref={mergedRef} {...labelProps} {...rest}>
       {children}
     </label>
   );
-  return renderWith(el, render, state);
+  return renderWith(el, render, state, mergedRef);
 });
 
 // ── Group ─────────────────────────────────────────────────────────────────────

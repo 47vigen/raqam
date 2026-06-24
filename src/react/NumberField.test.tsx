@@ -148,6 +148,49 @@ describe("NumberField ARIA attributes", () => {
     expect(screen.getByTestId("group")).toHaveAttribute("aria-labelledby", labelId);
     expect(screen.getByTestId("input")).toHaveAttribute("aria-labelledby", labelId);
   });
+
+  it("keeps the label registered through the render-prop function form", () => {
+    // The render function must receive the registration ref so it can spread it
+    // onto the rendered label (React 18 drops ref from props without threading).
+    let receivedRef: unknown;
+    render(
+      <NumberField.Root locale="en-US">
+        <NumberField.Label
+          render={(props) => {
+            receivedRef = (props as { ref?: unknown }).ref;
+            return <label {...props} data-testid="rp-label" />;
+          }}
+        >
+          Amount
+        </NumberField.Label>
+        <NumberField.Group data-testid="group">
+          <NumberField.Input data-testid="input" />
+        </NumberField.Group>
+      </NumberField.Root>
+    );
+    expect(typeof receivedRef).toBe("function");
+    const labelId = screen.getByTestId("rp-label").getAttribute("id");
+    expect(labelId).toBeTruthy();
+    expect(screen.getByTestId("group")).toHaveAttribute("aria-labelledby", labelId);
+    expect(screen.getByTestId("input")).toHaveAttribute("aria-labelledby", labelId);
+  });
+
+  it("keeps the label registered through the render-prop element form", () => {
+    render(
+      <NumberField.Root locale="en-US">
+        <NumberField.Label render={<label data-testid="rp-el-label" />}>
+          Amount
+        </NumberField.Label>
+        <NumberField.Group data-testid="group">
+          <NumberField.Input data-testid="input" />
+        </NumberField.Group>
+      </NumberField.Root>
+    );
+    const labelId = screen.getByTestId("rp-el-label").getAttribute("id");
+    expect(labelId).toBeTruthy();
+    expect(screen.getByTestId("group")).toHaveAttribute("aria-labelledby", labelId);
+    expect(screen.getByTestId("input")).toHaveAttribute("aria-labelledby", labelId);
+  });
 });
 
 describe("NumberField input type", () => {
