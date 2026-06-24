@@ -35,19 +35,23 @@ pnpm add raqam
 ### Hook API
 
 ```tsx
-import { useNumberFieldState, useNumberField } from 'raqam'
+import { useNumberFieldState, useNumberField, type UseNumberFieldStateOptions } from 'raqam'
 import { useRef } from 'react'
 
 function PriceInput() {
-  const state = useNumberFieldState({
+  // Share one options object — useNumberField builds its own formatter/parser,
+  // so it needs the same formatting options as useNumberFieldState. `satisfies`
+  // keeps the literal types (e.g. style: 'currency') in a strict TS project.
+  const options = {
     locale: 'en-US',
     formatOptions: { style: 'currency', currency: 'USD' },
     minValue: 0,
     defaultValue: 1234.56,
-  })
+  } satisfies UseNumberFieldStateOptions
+  const state = useNumberFieldState(options)
   const inputRef = useRef(null)
   const { inputProps, labelProps, incrementButtonProps, decrementButtonProps } =
-    useNumberField({ label: 'Price' }, state, inputRef)
+    useNumberField({ ...options, label: 'Price' }, state, inputRef)
 
   return (
     <div>

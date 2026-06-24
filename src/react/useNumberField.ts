@@ -76,6 +76,7 @@ export function useNumberField(
     stepHoldInterval = 200,
     formatValue: customFormatValue,
     parseValue: customParseValue,
+    onValueCommitted,
   } = props; // formatValue/parseValue are on UseNumberFieldStateOptions (inherited)
 
   // Compact/scientific/engineering notation produce formatted strings ("2.5K",
@@ -409,7 +410,9 @@ export function useNumberField(
         pendingCursor.current = cursorPos;
       }
 
-      state._setLastChangeReason("input");
+      // An edit that empties the field reports the dedicated "clear" reason so
+      // consumers can distinguish a deletion-to-empty from ordinary typing.
+      state._setLastChangeReason(displayValue === "" ? "clear" : "input");
       state.setInputValue(displayValue, knownValue);
     },
     [
@@ -524,7 +527,8 @@ export function useNumberField(
       e.preventDefault();
       const text = String(state.numberValue ?? "");
       e.clipboardData.setData("text/plain", text);
-      // Clear the field after cut
+      // Clear the field after cut — report the dedicated "clear" reason.
+      state._setLastChangeReason("clear");
       state.setInputValue("");
     },
     [copyBehavior, state]
@@ -602,8 +606,10 @@ export function useNumberField(
                 liveFormatter.format(parseResult.value);
               state.setInputValue(nextDisplay, parseResult.value);
             } else {
-              // Empty or intermediate — store as-is (blur will clean up)
+              // Empty or intermediate — store as-is (blur will clean up). If the
+              // edit emptied the field, report the dedicated "clear" reason.
               nextDisplay = rawEdited;
+              if (rawEdited === "") state._setLastChangeReason("clear");
               state.setInputValue(rawEdited);
             }
             // Remap the caret through the cursor engine so re-grouping shifts
@@ -655,7 +661,9 @@ export function useNumberField(
                 state.setInputValue(nextDisplay, parseResult.value);
               } else {
                 // No digits left — clear the field (don't strand the affordance).
+                // Report the dedicated "clear" reason like the onChange path.
                 nextDisplay = "";
+                state._setLastChangeReason("clear");
                 state.setInputValue("");
               }
               pendingCursor.current = computeNewCursorPosition(
@@ -719,7 +727,8 @@ export function useNumberField(
 
       if (key === "Enter") {
         state._setLastChangeReason("blur");
-        state.commit();
+        const committed = state.commit();
+        onValueCommitted?.(committed, { reason: "keyboard" });
         return;
       }
     },
@@ -737,6 +746,7 @@ export function useNumberField(
       inputRef,
       allowDecimal,
       formatGroupedFraction,
+      onValueCommitted,
     ]
   );
 
@@ -745,10 +755,11 @@ export function useNumberField(
     (e: React.FocusEvent<HTMLInputElement>) => {
       state.setIsFocused(false);
       state._setLastChangeReason("blur");
-      state.commit();
+      const committed = state.commit();
+      onValueCommitted?.(committed, { reason: "blur" });
       onBlur?.(e);
     },
-    [state, onBlur]
+    [state, onBlur, onValueCommitted]
   );
 
   // ── Focus handler ────────────────────────────────────────────────────────

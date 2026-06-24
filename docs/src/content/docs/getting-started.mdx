@@ -61,14 +61,13 @@ import { useNumberFieldState, useNumberField } from "raqam";
 export function QuantityInput() {
   const inputRef = useRef<HTMLInputElement>(null);
 
-  const state = useNumberFieldState({
-    locale: "en-US",
-    defaultValue: 1,
-    minValue: 0,
-  });
+  // Share one options object — useNumberField builds its own formatter/parser
+  // and needs the same formatting-relevant options as the state hook.
+  const options = { locale: "en-US", defaultValue: 1, minValue: 0 };
 
+  const state = useNumberFieldState(options);
   const { labelProps, groupProps, inputProps, incrementButtonProps, decrementButtonProps } =
-    useNumberField({ locale: "en-US", minValue: 0 }, state, inputRef);
+    useNumberField(options, state, inputRef);
 
   return (
     <div>
@@ -82,6 +81,10 @@ export function QuantityInput() {
   );
 }
 ```
+
+The `NumberField` components do this wiring for you, so reach for the Hook API
+only when you need full control of the DOM. See
+[`useNumberField`](/api/use-number-field) for why both hooks need the same options.
 
 ## Controlled vs uncontrolled
 
@@ -107,7 +110,9 @@ const [value, setValue] = useState<number | null>(42);
 
 `onChange` receives `number | null` whenever the parsed numeric value changes.
 If you need metadata about *how* the change happened, use `onValueChange` on
-`NumberField.Root` for `{ reason, formattedValue }`.
+`NumberField.Root` for `{ reason, formattedValue }`. To react only when the value
+settles (on blur or Enter), use `onValueCommitted` instead — see
+[Formatting & Behavior → Change reasons](/guides/formatting#change-reasons).
 
 ## Currency formatting
 

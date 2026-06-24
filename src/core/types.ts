@@ -166,8 +166,8 @@ export interface NumberFieldState {
   setInputValue: (val: string, knownValue?: number | null) => void;
   /** Directly set the numeric value (triggers format + onChange) */
   setNumberValue: (val: number | null) => void;
-  /** Format + clamp on blur — call from onBlur */
-  commit: () => void;
+  /** Format + clamp on blur — call from onBlur. Returns the committed numeric value. */
+  commit: () => number | null;
   /** Increment by step */
   increment: (amount?: number) => void;
   /** Decrement by step */
@@ -219,6 +219,14 @@ export interface UseNumberFieldProps extends UseNumberFieldStateOptions {
   stepHoldInterval?: number;
   onFocus?: (e: React.FocusEvent<HTMLInputElement>) => void;
   onBlur?: (e: React.FocusEvent<HTMLInputElement>) => void;
+  /**
+   * Fires only when the value is committed — i.e. on blur, or when the user
+   * presses Enter — after formatting and clamping have been applied.
+   * `reason` is `"blur"` for focus loss and `"keyboard"` for Enter.
+   * Reach for this (instead of `onChange`) when you only care about the final,
+   * settled value: persisting it, validating server-side, firing a request, etc.
+   */
+  onValueCommitted?: (value: number | null, details: { reason: "blur" | "keyboard" }) => void;
   // Note: formatValue and parseValue are inherited from UseNumberFieldStateOptions
 }
 
@@ -284,6 +292,5 @@ export interface NumberFieldRootProps extends UseNumberFieldProps {
       event?: React.SyntheticEvent;
     }
   ) => void;
-  /** Fires only on commit (blur, Enter) */
-  onValueCommitted?: (value: number | null, details: { reason: "blur" | "keyboard" }) => void;
+  // `onValueCommitted` is inherited from `UseNumberFieldProps`.
 }

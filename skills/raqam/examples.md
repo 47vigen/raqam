@@ -75,18 +75,24 @@ import { NumberField } from "raqam";
 
 ```tsx
 import { useRef } from "react";
-import { useNumberFieldState, useNumberField } from "raqam";
+import { useNumberFieldState, useNumberField, type UseNumberFieldStateOptions } from "raqam";
 
 function PriceInput() {
   const inputRef = useRef<HTMLInputElement>(null);
-  const state = useNumberFieldState({
+
+  // Share one options object — useNumberField builds its own formatter/parser
+  // and needs the SAME formatting options as the state hook. `satisfies` keeps
+  // the literal types (e.g. style: "currency") in a strict TS project.
+  const options = {
     locale: "en-US",
     formatOptions: { style: "currency", currency: "USD" },
     minValue: 0,
     defaultValue: 1234.56,
-  });
+  } satisfies UseNumberFieldStateOptions;
+
+  const state = useNumberFieldState(options);
   const { inputProps, labelProps, incrementButtonProps, decrementButtonProps } =
-    useNumberField({ label: "Price" }, state, inputRef);
+    useNumberField({ ...options, label: "Price" }, state, inputRef);
 
   return (
     <div>
@@ -141,6 +147,57 @@ const displayPrice = formatter.format(1234.56);
 
 Use `onValueChange` when the calling app needs to know whether the change came
 from typing, paste, wheel, increment/decrement, blur, or scrubbing.
+
+## Commit-only callback (save the settled value)
+
+```tsx
+<NumberField.Root
+  locale="en-US"
+  formatOptions={{ style: "currency", currency: "USD" }}
+  defaultValue={0}
+  minValue={0}
+  onValueCommitted={(value, { reason }) => {
+    // Fires once the value settles: reason "blur" (focus loss) or "keyboard" (Enter).
+    void fetch("/api/price", { method: "POST", body: JSON.stringify({ value }) });
+  }}
+>
+  <NumberField.Label>Price</NumberField.Label>
+  <NumberField.Input />
+</NumberField.Root>
+```
+
+`onValueCommitted` fires after formatting + clamping with the final value — use it
+instead of `onChange`/`onValueChange` when you only care about the settled value.
+
+## ScrubArea (drag to change)
+
+```tsx
+<NumberField.Root locale="en-US" defaultValue={50} minValue={0} maxValue={100}>
+  <NumberField.ScrubArea direction="horizontal" pixelSensitivity={2}>
+    <NumberField.Label>Opacity</NumberField.Label>
+    <NumberField.ScrubAreaCursor>⟺</NumberField.ScrubAreaCursor>
+  </NumberField.ScrubArea>
+  <NumberField.Input />
+</NumberField.Root>
+```
+
+The scrub area uses the Pointer Lock API and is keyboard accessible
+(`role="slider"`, arrow keys step the value).
+
+## Strict clamp + out-of-range
+
+```tsx
+// "strict": reject keystrokes that would push the value out of range.
+<NumberField.Root locale="en-US" minValue={0} maxValue={10} clampBehavior="strict">
+  <NumberField.Input />
+</NumberField.Root>
+
+// allowOutOfRange: keep + commit the typed value, flag it invalid (server validates).
+<NumberField.Root locale="en-US" minValue={1} maxValue={5} allowOutOfRange>
+  <NumberField.Input />
+  <NumberField.ErrorMessage>Out of range</NumberField.ErrorMessage>
+</NumberField.Root>
+```
 
 ## react-hook-form (Controller)
 

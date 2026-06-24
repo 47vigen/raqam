@@ -77,9 +77,26 @@ Data attributes set on the root element:
 | `data-required` | `required` is `true` |
 | `data-scrubbing` | A scrub interaction is active |
 
-If you only care about commit-time analytics, use `onValueChange` and check the
-`reason` field (`"blur"`, `"keyboard"`, `"increment"`, `"decrement"`, `"wheel"`,
-`"paste"`, `"input"`, `"clear"`, or `"scrub"`).
+`onValueChange` fires on **every** change and reports how it happened via
+`reason` (`"input"`, `"clear"`, `"paste"`, `"keyboard"`, `"increment"`,
+`"decrement"`, `"wheel"`, `"scrub"`, or `"blur"`). `onValueCommitted` fires
+**only when the value settles** — on blur (`reason: "blur"`) or when the user
+presses Enter (`reason: "keyboard"`) — after formatting and clamping, and
+receives the final value. Use it to persist a value or fire a request without
+reacting to every keystroke.
+
+```tsx
+<NumberField.Root
+  locale="en-US"
+  minValue={0}
+  onValueCommitted={(value, { reason }) => save(value)} // reason: "blur" | "keyboard"
+>
+  <NumberField.Input />
+</NumberField.Root>
+```
+
+See [Formatting & Behavior → Change reasons](/guides/formatting#change-reasons)
+for the full breakdown.
 
 ---
 
@@ -144,7 +161,10 @@ Wraps any element; dragging over it adjusts the value via Pointer Lock API.
 </NumberField.ScrubArea>
 ```
 
-`data-scrubbing` is set on the element while dragging.
+The element renders as `role="slider"` with `tabIndex={0}`, so it is keyboard
+accessible: arrow keys (←/→ or ↑/↓) step the value while it is focused. The CSS
+`cursor` reflects the axis (`ew-resize` / `ns-resize` / `move`), and
+`data-scrubbing=""` is set while a pointer-lock drag is active.
 
 ---
 
@@ -167,12 +187,18 @@ next to the active scrub handle. Accepts `<span>` props.
 ## `NumberField.Formatted`
 
 A `<span>` (or custom element) that displays the current formatted value as
-read-only text. Useful for dual-display UIs (edit + display side by side).
+read-only text. Useful for dual-display UIs (edit + display side by side). It
+renders with `aria-hidden="true"` so screen readers announce the value once
+(from the input), not twice.
 
 ```tsx
 <NumberField.Formatted />
 {/* Renders: "$1,234.56" */}
 ```
+
+This mirrors `state.inputValue` and updates live as the user edits. For
+formatting outside a `NumberField.Root`, use
+[`useNumberFieldFormat`](/api/use-number-field-format) instead.
 
 ---
 

@@ -113,6 +113,8 @@ const Root = forwardRef<HTMLDivElement, NumberFieldRootProps>(function NumberFie
   // returns the correct reason at the time onChange fires.
   const wrappedProps = {
     ...props,
+    // Forward onValueCommitted to the behavior hook, which fires it on blur/Enter.
+    onValueCommitted,
     onChange: (value: number | null) => {
       props.onChange?.(value);
       if (onValueChangeRef.current && stateRef.current) {

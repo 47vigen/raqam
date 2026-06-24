@@ -44,9 +44,17 @@ are also accepted here for convenience) plus:
 | `stepHoldInterval` | `number` | `200` | Milliseconds between accelerated steps. |
 | `onFocus` | `(e: React.FocusEvent<HTMLInputElement>) => void` | — | Called when the input gains focus. |
 | `onBlur` | `(e: React.FocusEvent<HTMLInputElement>) => void` | — | Called when the input loses focus (fires after commit). |
+| `onValueCommitted` | `(value, { reason }) => void` | — | Fires when the value settles — on blur (`reason: "blur"`) or Enter (`reason: "keyboard"`), after formatting + clamping. |
 
 All other props from `UseNumberFieldStateOptions` (`minValue`, `maxValue`,
 `step`, `formatOptions`, etc.) are accepted and forwarded appropriately.
+
+> **Pass the same options to both hooks.** `useNumberField` builds its own
+> formatter and parser, so it needs the same formatting-relevant options you gave
+> `useNumberFieldState` (`locale`, `formatOptions`, `prefix`, `suffix`,
+> `minValue`/`maxValue`, `allowNegative`, `allowDecimal`, fraction-digit
+> overrides). Share one options object between them. The
+> [`NumberField` components](/api/components) handle this wiring for you.
 
 ## Return value — `NumberFieldAria`
 
@@ -73,8 +81,12 @@ All other props from `UseNumberFieldStateOptions` (`minValue`, `maxValue`,
 | Page Down | Decrement by `largeStep` |
 | Home | Jump to `minValue` |
 | End | Jump to `maxValue` |
-| Enter | Commit current value |
-| Backspace | Smart deletion (skips over grouping separators) |
+| Enter | Commit the current value (fires `onValueCommitted`) |
+| Backspace | Smart deletion (deletes through grouping separators and trailing affordances) |
+
+`Home`/`End` only act when `minValue`/`maxValue` are set. For the full story on
+smart backspace, the smart-decimal caret jump, paste handling, and live
+formatting, see [Formatting & Behavior](/guides/formatting).
 
 The returned `inputProps` also include `data-rtl`, `data-invalid`,
 `data-disabled`, `data-readonly`, and `data-required` attributes so you can

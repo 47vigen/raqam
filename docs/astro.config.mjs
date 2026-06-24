@@ -51,6 +51,7 @@ export default defineConfig({
         {
           label: "Guides",
           items: [
+            { label: "Formatting & Behavior", link: "/guides/formatting" },
             { label: "Locales & i18n", link: "/guides/locales" },
             { label: "RTL Support", link: "/guides/rtl" },
             { label: "Next.js App Router", link: "/guides/nextjs" },
