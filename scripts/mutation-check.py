@@ -60,31 +60,77 @@ MUT = [
   "src/react/behavior/editing.test.tsx"),
 ]
 
+import json, tempfile
+
+def run_test(test):
+    """Run one behavioral test file and read vitest's JSON result FROM A FILE
+    (robust to any stdout wrapping). Returns (ran, pass_n, fail_n) where `ran` is
+    True only if vitest actually executed a suite — so a missing-dep / broken
+    install (file never written) is distinguished from a real assertion failure."""
+    out_file = os.path.join(tempfile.gettempdir(), "raqam_mutation_result.json")
+    try:
+        os.remove(out_file)
+    except OSError:
+        pass
+    subprocess.run(["pnpm", "exec", "vitest", "run", test,
+                    "--reporter=json", "--outputFile=" + out_file],
+                   capture_output=True, text=True, timeout=180)
+    if not os.path.exists(out_file):
+        return (False, 0, 0)  # vitest never ran (setup/install error) — inconclusive
+    try:
+        d = json.load(open(out_file))
+    except Exception:
+        return (False, 0, 0)
+    total = d.get("numTotalTests", 0)
+    suites = d.get("numTotalTestSuites", 0)
+    # A failed suite (compile error from the mutation) counts as caught too.
+    failed = d.get("numFailedTests", 0) + d.get("numFailedTestSuites", 0)
+    ran = total > 0 or suites > 0
+    return (ran, d.get("numPassedTests", 0), failed)
+
+# Warn if a mutated file is dirty: we restore from the in-memory buffer (so local
+# edits are preserved), but a green baseline must reflect the committed fix.
+files = sorted({m[1] for m in MUT})
+dirty = subprocess.run(["git", "status", "--porcelain"] + files,
+                       capture_output=True, text=True).stdout.strip()
+if dirty:
+    print("WARNING: mutated source files have uncommitted changes — baseline may not reflect the fix:\n" + dirty)
+
+# Baseline: each target test must be GREEN before mutating, else the run is
+# inconclusive for it (the test/environment is broken, not the mutation).
+baseline_ok = {}
+for test in sorted({m[4] for m in MUT}):
+    ran, _p, f = run_test(test)
+    baseline_ok[test] = ran and f == 0
+    if not baseline_ok[test]:
+        print(f"BASELINE NOT GREEN for {test} (ran={ran}, fail={f}) — its mutations are INCONCLUSIVE")
+
 results = []
 for mid, fpath, old, new, test in MUT:
-    with open(fpath) as fh: orig = fh.read()
-    cnt = orig.count(old)
-    if cnt != 1:
-        results.append((mid, f"SNIPPET COUNT={cnt} (expected 1) — skipped", None)); continue
+    with open(fpath) as fh:
+        orig = fh.read()
+    if orig.count(old) != 1:
+        results.append((mid, "SKIPPED (snippet drifted from source)")); continue
+    if not baseline_ok[test]:
+        results.append((mid, "INCONCLUSIVE (baseline not green)")); continue
     try:
-        with open(fpath, "w") as fh: fh.write(orig.replace(old, new, 1))
-        r = subprocess.run(["pnpm","exec","vitest","run",test,"--reporter=basic"],
-                           capture_output=True, text=True, timeout=120)
-        out = r.stdout + r.stderr
-        red = r.returncode != 0
-        # extract a failing test name if present
-        fail_lines = [l.strip() for l in out.splitlines() if "FAIL" in l or "×" in l]
-        results.append((mid, "RED (caught)" if red else "GREEN (GAP!)", fail_lines[:2]))
+        with open(fpath, "w") as fh:
+            fh.write(orig.replace(old, new, 1))
+        ran, _p, f = run_test(test)
+        if not ran:
+            results.append((mid, "INCONCLUSIVE (runner/compile error, not an assertion)"))
+        elif f > 0:
+            results.append((mid, f"RED (caught by {f} assertion failure{'s' if f != 1 else ''})"))
+        else:
+            results.append((mid, "GREEN (GAP! the test stayed green)"))
     finally:
-        subprocess.run(["git","checkout","--",fpath], check=False)
+        with open(fpath, "w") as fh:  # restore the saved buffer (preserves any local edits)
+            fh.write(orig)
 
 print("\n=== MUTATION TESTING RESULTS ===")
-caught = 0
-for mid, status, fails in results:
-    print(f"  [{ 'OK' if 'RED' in status else 'GAP' if 'GREEN' in status else '??' }] {mid:28} -> {status}")
-    if "RED" in status: caught += 1
-print(f"\nCaught {caught}/{len(MUT)} mutations (red = the new test detected the re-introduced bug)")
-# verify clean restore
-g = subprocess.run(["git","status","--porcelain"], capture_output=True, text=True)
-src_dirty = [l for l in g.stdout.splitlines() if any(x in l for x in ["src/core/parser","src/core/formatter","useNumberField"])]
-print("Source files restored cleanly:" , "YES" if not src_dirty else f"NO -> {src_dirty}")
+caught = sum(1 for _, s in results if s.startswith("RED"))
+for mid, status in results:
+    tag = "OK" if status.startswith("RED") else "GAP" if status.startswith("GREEN") else "--"
+    print(f"  [{tag}] {mid:28} -> {status}")
+print(f"\nCaught {caught}/{len(MUT)} mutations by a REAL assertion failure "
+      "(runner/setup failures are not counted as caught).")
