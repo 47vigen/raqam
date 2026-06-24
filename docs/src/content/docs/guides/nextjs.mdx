@@ -39,8 +39,11 @@ export function PriceInput({ value, onChange }: {
 ```
 
 <Aside>
-  The `raqam` package ships with `"use client";` prepended to its bundles.
-  You can import it directly in Client Components without any extra wrapper.
+  The React entries (`raqam` and `raqam/react`) ship with `"use client";`
+  prepended to their bundles, so you can import them directly in Client
+  Components without any extra wrapper. `raqam/core` and `raqam/server` do
+  **not** carry the directive — they have zero React dependency and are safe to
+  import from Server Components.
 </Aside>
 
 ## Server Components — formatting only

@@ -126,12 +126,14 @@
 
 #### Bundle sizes
 
-| Entry              | Gzipped  |
-| ------------------ | -------- |
-| `raqam/core`       | < 2 KB   |
-| `raqam`            | < 9 KB   |
-| `raqam/react`      | < 8 KB   |
-| `raqam/locales/fa` | < 0.3 KB |
+Min + brotli (including dependencies), enforced in CI via `.size-limit.json`:
+
+| Entry              | Size     | CI budget |
+| ------------------ | -------- | --------- |
+| `raqam/core`       | ~1.84 KB | 2 KB      |
+| `raqam`            | ~8.3 KB  | 12 KB     |
+| `raqam/react`      | ~8.1 KB  | 10 KB     |
+| `raqam/locales/fa` | 189 B    | 0.3 KB    |
 
 #### Documentation
 

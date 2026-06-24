@@ -16,7 +16,7 @@
 | Truly headless | ✅ | ✅ | ❌ | ✅ |
 | i18n digit input (Persian ۱۲۳, Arabic ١٢٣…) | ❌ | ✅ | ❌ | ✅ |
 | WAI-ARIA spinbutton | ✅ | ✅✅ | ⚠️ | ✅✅ |
-| Bundle size | ~10 KB | ~30 KB | ~60 KB | **~1.7 KB core** |
+| Bundle size | ~10 KB | ~30 KB | ~60 KB | **~1.8 KB core** |
 
 No existing package combines all four. raqam does.
 
@@ -184,9 +184,14 @@ Uses the Pointer Lock API so the cursor never hits the screen edge during drag.
 [data-invalid]   { border-color: red; }
 [data-disabled]  { opacity: 0.5; }
 [data-readonly]  { background: #f5f5f5; }
-[data-rtl]       { /* RTL-specific overrides */ }
+[data-required]  { /* required-field styling */ }
 [data-scrubbing] { cursor: ew-resize; }
+[data-rtl]       { /* RTL-specific overrides (set on the input element) */ }
 ```
+
+`data-focused`, `data-invalid`, `data-disabled`, `data-readonly`, `data-required`,
+and `data-scrubbing` are set on `NumberField.Root`; `data-rtl` (plus the state
+attributes) is set on the `NumberField.Input` element.
 
 ## 🔗 react-hook-form integration
 
@@ -272,14 +277,18 @@ State management hook — returns `NumberFieldState`.
 | `validate` | `(v: number \| null) => boolean \| string \| null` | — | Custom validation |
 | `prefix` | `string` | — | String prefix (e.g. `"$"`) |
 | `suffix` | `string` | — | String suffix (e.g. `" تومان"`) |
+| `liveFormat` | `boolean` | `true` | Format while typing (disable for IME locales) |
 | `disabled` | `boolean` | `false` | Disable the field |
 | `readOnly` | `boolean` | `false` | Read-only mode |
+| `required` | `boolean` | `false` | Mark the field as required |
+
+Also accepts `maximumFractionDigits`, `minimumFractionDigits`, `formatValue`,
+and `parseValue` — see the [full options reference](https://47vigen.github.io/raqam/api/use-number-field-state/).
 
 ### `useNumberField(props, state, inputRef)`
 
-Behavior hook — returns `NumberFieldAria` prop objects for each element.
-
-Additional props beyond state options:
+Behavior hook — returns `NumberFieldAria` prop objects for each element. Accepts
+every `useNumberFieldState` option plus the behavior-only props below:
 
 | Prop | Type | Default | Description |
 |------|------|---------|-------------|
@@ -287,18 +296,23 @@ Additional props beyond state options:
 | `copyBehavior` | `"formatted" \| "raw" \| "number"` | `"formatted"` | Clipboard content on copy |
 | `stepHoldDelay` | `number` | `400` | Press-and-hold initial delay (ms) |
 | `stepHoldInterval` | `number` | `200` | Press-and-hold repeat interval (ms) |
-| `formatValue` | `(value: number) => string` | — | Custom format function |
-| `parseValue` | `(input: string) => { value: number \| null; isIntermediate: boolean }` | — | Custom parse function |
+| `label` / `name` / `id` / `aria-*` | `string` | — | Labelling, form name, and id wiring |
+
+→ Full reference: [`useNumberField`](https://47vigen.github.io/raqam/api/use-number-field/).
 
 ### `NumberField.Root` extra props
 
 | Prop | Type | Description |
 |------|------|-------------|
-| `onValueChange` | `(value, { reason, formattedValue }) => void` | Fires with change reason |
+| `onValueChange` | `(value, { reason, formattedValue }) => void` | Fires on every change, with the change `reason` |
+| `onValueCommitted` | `(value, { reason }) => void` | Fires only on commit (`reason: "blur" \| "keyboard"`) |
+| `className` / `style` | `string` / `CSSProperties` | Applied to the root wrapper `<div>` |
 
 ### `useNumberFieldFormat(value, options)`
 
-Display-only formatting hook. Returns a formatted string. Zero state overhead — safe in RSC via `raqam/server`.
+Display-only formatting hook (client-only — it carries `"use client"`). Returns a
+formatted string with zero state overhead. For React Server Components, SSR, or
+Edge, use `createFormatter` from `raqam/server` instead (shown above).
 
 ### `NumberField.*` components
 
@@ -329,14 +343,15 @@ Every component accepts a `render` prop for element replacement:
 
 ## 📦 Bundle size
 
-Actual sizes (brotli compressed):
+Measured min + brotli (including dependencies), enforced in CI via
+[`.size-limit.json`](.size-limit.json):
 
-| Entry | Size |
-|-------|------|
-| `raqam/core` | ~1.7 KB |
-| `raqam` (hooks + components) | ~7 KB |
-| `raqam/react` | ~6.8 KB |
-| `raqam/locales/fa` | ~200 B |
+| Entry | Size | CI budget |
+|-------|------|-----------|
+| `raqam/core` | ~1.84 KB | 2 KB |
+| `raqam` (hooks + components) | ~8.3 KB | 12 KB |
+| `raqam/react` | ~8.1 KB | 10 KB |
+| `raqam/locales/fa` | 189 B | 0.3 KB |
 
 ## 📄 License
 

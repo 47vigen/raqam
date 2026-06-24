@@ -46,8 +46,8 @@ function useNumberFieldState(
 | `minValue` | `number` | — | Minimum allowed value. |
 | `maxValue` | `number` | — | Maximum allowed value. |
 | `step` | `number` | `1` | Normal step (↑/↓ arrow keys). |
-| `largeStep` | `number` | `10` | Large step (Shift+↑/↓, Page Up/Down). |
-| `smallStep` | `number` | `0.1` | Small step (Ctrl/Cmd+↑/↓). |
+| `largeStep` | `number` | `step × 10` | Large step (Shift+↑/↓, Page Up/Down). |
+| `smallStep` | `number` | `step × 0.1` | Small step (Ctrl/Cmd+↑/↓). |
 | `clampBehavior` | `"blur" \| "strict" \| "none"` | `"blur"` | When to clamp to min/max. |
 | `allowOutOfRange` | `boolean` | `false` | Skip clamping; sets `aria-invalid` when out of range. |
 | `allowNegative` | `boolean` | `true` | Allow negative values. |
@@ -68,7 +68,8 @@ function useNumberFieldState(
 
 | Prop | Type | Default | Description |
 |------|------|---------|-------------|
-| `validate` | `(v: number \| null) => boolean \| string \| null` | — | Custom validator. Return `true` for valid, `string` for error message. |
+| `validate` | `(v: number \| null) => boolean \| string \| null \| undefined` | — | Custom validator. Return `true`/`null`/`undefined` for valid, `false` for invalid, or a `string` to set an error message. |
+| `required` | `boolean` | `false` | Mark the field as required (sets `aria-required` / `data-required`). |
 
 ### Escape hatches
 
@@ -82,10 +83,12 @@ function useNumberFieldState(
 
 | Prop | Type | Default | Description |
 |------|------|---------|-------------|
-| `stepHoldDelay` | `number` | `400` | Milliseconds before press-and-hold acceleration starts. |
-| `stepHoldInterval` | `number` | `200` | Milliseconds between accelerated steps. |
 | `disabled` | `boolean` | `false` | Disable all interaction. |
 | `readOnly` | `boolean` | `false` | Allow focus, disallow editing. |
+
+Press-and-hold timing (`stepHoldDelay`, `stepHoldInterval`) and other
+behavior-only props (`copyBehavior`, `allowMouseWheel`, `name`, `label`,
+`aria-*`) live on the behavior hook — see [`useNumberField`](/api/use-number-field).
 
 ## Return value — `NumberFieldState`
 
@@ -100,15 +103,16 @@ function useNumberFieldState(
 | `canDecrement` | `boolean` | False when at `minValue` or `disabled`. |
 | `validationState` | `"valid" \| "invalid"` | Result of the `validate` callback plus range checks. |
 | `validationError` | `string \| null` | Error message from `validate`, or `null`. |
-| `increment()` | `() => void` | Step up by `step`. |
-| `decrement()` | `() => void` | Step down by `step`. |
+| `increment(amount?)` | `(amount?: number) => void` | Step up by `step` (or by `amount` when given). |
+| `decrement(amount?)` | `(amount?: number) => void` | Step down by `step` (or by `amount` when given). |
 | `incrementToMax()` | `() => void` | Jump to `maxValue`. |
 | `decrementToMin()` | `() => void` | Jump to `minValue`. |
-| `setInputValue(s)` | `(s: string) => void` | Directly set the display string. |
+| `setInputValue(s, knownValue?)` | `(s: string, knownValue?: number \| null) => void` | Set the display string. Pass `knownValue` when `s` is a formatted string that can't be reparsed (compact, scientific, unit). |
 | `setNumberValue(n)` | `(n: number \| null) => void` | Directly set the numeric value. |
 | `commit()` | `() => void` | Trigger blur-time formatting and clamping. |
 | `setIsFocused(b)` | `(b: boolean) => void` | Sync focus state (called by `useNumberField`). |
 | `setIsScrubbing(b)` | `(b: boolean) => void` | Sync scrub state (called by `useScrubArea`). |
+| `options` | `UseNumberFieldStateOptions` | The resolved options object (read by `useNumberField`/`useScrubArea`). |
 
 ## Example
 

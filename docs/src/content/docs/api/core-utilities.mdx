@@ -115,10 +115,11 @@ build your own custom input pipeline.
 Returns a `boolean[]` showing which positions in a formatted string are valid
 caret stops.
 
-### `computeNewCursorPosition(oldInput, oldCursor, newFormatted, localeInfo)`
+### `computeNewCursorPosition(oldInput, oldCursor, newFormatted, localeInfo, inputType?)`
 
 Maps the caret from the pre-format string to the new formatted string after an
-edit.
+edit. The optional `inputType` (the native `InputEvent.inputType`, e.g.
+`"deleteContentBackward"`) refines deletion handling around grouping separators.
 
 ```ts
 const formatter = createFormatter({ locale: "en-US" });

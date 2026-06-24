@@ -1,6 +1,22 @@
 # The definitive React number input: design specification
 
-**No existing React number input package combines live formatting, true headless composability, full i18n digit support, and gold-standard accessibility into one solution.** This document specifies exactly how to build one. After analyzing every major competitor — Base UI, React Aria, Mantine, Chakra, rc-input-number, and react-number-format — we identified a critical gap: libraries excel at one or two of these dimensions but fail at the rest. React Aria has the best accessibility and i18n parsing (30+ locales, Arabic/Persian digit input) but only formats on blur. Mantine wraps react-number-format for live formatting but is locked to its design system. Base UI is truly headless with an innovative ScrubArea but lacks live formatting and i18n digit parsing. **This package — tentatively named `raqam` — unifies all four pillars into a single, tree-shakeable, zero-dependency library shipping both a Hook API and a Headless Component API.**
+> **📜 Historical design document.** This is the original specification written
+> **before** raqam was implemented. It captures the research, gap analysis, and
+> architecture decisions (ADRs) that shaped the library — kept as design
+> rationale for contributors. It is **not** API documentation and some details
+> describe the *plan*, not what shipped (targets, names, type sketches, and the
+> week-by-week roadmap have since changed).
+>
+> For the **shipped API and current usage**, see:
+> - [`README.md`](README.md) — quick start + API tables
+> - The docs site — <https://47vigen.github.io/raqam/>
+> - [`CHANGELOG.md`](CHANGELOG.md) — what actually shipped per release
+>
+> The architecture rationale below (ADRs §4, the cursor engine §6, the i18n/RTL
+> strategy §7) remains accurate and is the best place to understand *why* raqam
+> is built the way it is.
+
+**No existing React number input package combines live formatting, true headless composability, full i18n digit support, and gold-standard accessibility into one solution.** This document specifies exactly how to build one. After analyzing every major competitor — Base UI, React Aria, Mantine, Chakra, rc-input-number, and react-number-format — we identified a critical gap: libraries excel at one or two of these dimensions but fail at the rest. React Aria has the best accessibility and i18n parsing (30+ locales, Arabic/Persian digit input) but only formats on blur. Mantine wraps react-number-format for live formatting but is locked to its design system. Base UI is truly headless with an innovative ScrubArea but lacks live formatting and i18n digit parsing. **This package — `raqam` — unifies all four pillars into a single, tree-shakeable, zero-dependency library shipping both a Hook API and a Headless Component API.**
 
 ---
 
@@ -154,7 +170,7 @@ The core always handles Latin digits and `Intl.NumberFormat` output. Locale plug
 
 **Decision**: Ship as one npm package with subpath exports, not a monorepo of separate packages.
 
-**Rationale**: The codebase is tightly coupled (formatting logic feeds into hooks which feed into components). Separate packages would create version synchronization headaches. Subpath exports provide the same tree-shaking benefits: `import { useNumberField } from 'raqam'` for the hook, `import { NumberField } from 'raqam/components'` for headless components, `import 'raqam/locales/fa'` for Persian support.
+**Rationale**: The codebase is tightly coupled (formatting logic feeds into hooks which feed into components). Separate packages would create version synchronization headaches. Subpath exports provide the same tree-shaking benefits: `import { useNumberField } from 'raqam'` for the hook, `import { NumberField } from 'raqam'` (or `raqam/react`) for headless components, `import 'raqam/locales/fa'` for Persian support. (As shipped, the entry points are `raqam`, `raqam/core`, `raqam/react`, `raqam/server`, and `raqam/locales/*` — there is no `raqam/components` subpath.)
 
 ### ADR-007: render prop pattern for element replacement
 
@@ -296,7 +312,7 @@ function useNumberField(
 </NumberField.Root>
 
 // With ScrubArea
-<NumberField.Root defaultValue={50} min={0} max={100}>
+<NumberField.Root defaultValue={50} minValue={0} maxValue={100}>
   <NumberField.ScrubArea direction="horizontal" pixelSensitivity={2}>
     <NumberField.Label>Opacity</NumberField.Label>
     <NumberField.ScrubAreaCursor>

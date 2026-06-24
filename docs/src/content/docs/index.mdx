@@ -3,7 +3,7 @@ title: 🔢 Raqam
 description: The definitive React number input — live formatting, full i18n, headless, accessible
 template: splash
 hero:
-  tagline: Live formatting • Full i18n • Headless • Accessible • < 5 KB
+  tagline: Live formatting • Full i18n • Headless • Accessible • ~1.8 KB core
   actions:
     - text: Get Started
       link: /raqam/getting-started
@@ -84,9 +84,11 @@ Type `1234` → see `$1,234.00`. Type `1234.5` → see `$1,234.5` (live, no flic
 
 ## Bundle size
 
-| Import             | Gzipped  |
-| ------------------ | -------- |
-| `raqam/core`       | < 2 KB   |
-| `raqam` (full)     | < 9 KB   |
-| `raqam/locales/fa` | < 0.3 KB |
-| `raqam/locales/ar` | < 0.3 KB |
+Measured min + brotli (including dependencies), enforced in CI:
+
+| Import             | Size     | CI budget |
+| ------------------ | -------- | --------- |
+| `raqam/core`       | ~1.84 KB | 2 KB      |
+| `raqam` (full)     | ~8.3 KB  | 12 KB     |
+| `raqam/react`      | ~8.1 KB  | 10 KB     |
+| `raqam/locales/fa` | 189 B    | 0.3 KB    |

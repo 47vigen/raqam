@@ -19,12 +19,13 @@ manually.
 | `aria-valuemin` | `minValue` | Only set when `minValue` is provided |
 | `aria-valuemax` | `maxValue` | Only set when `maxValue` is provided |
 | `aria-valuetext` | formatted string | Localized display value for screen readers |
-| `aria-invalid` | `"true"` when invalid | Set by `validate` callback or `allowOutOfRange` |
-| `aria-disabled` | `"true"` when disabled | |
-| `aria-readonly` | `"true"` when readOnly | |
-| `aria-required` | `"true"` when required | Pass `required` prop |
+| `aria-invalid` | boolean `true` when invalid | Set by `validate` callback or `allowOutOfRange` |
+| `aria-disabled` | `true` when disabled | |
+| `aria-readonly` | `true` when readOnly | |
+| `aria-required` | `true` when required | Pass `required` prop |
 | `aria-labelledby` | — | Auto-wired from `<NumberField.Label>` |
-| `aria-describedby` | — | Auto-wired from `<NumberField.Description>` |
+| `aria-describedby` | — | Only set when you pass `aria-describedby` on `<NumberField.Input>` — see [Associating help text](#associating-help-text) |
+| `aria-errormessage` | error element `id` | Auto-wired to `<NumberField.ErrorMessage>` when the field is invalid |
 | `inputMode` | `"decimal"` | Surfaces the numeric keyboard on mobile |
 | `type` | `"text"` | Always `text` (not `number`) to avoid browser UI conflicts |
 | `autoComplete` | `"off"` | Prevents autocomplete interference |
@@ -32,7 +33,9 @@ manually.
 ### Button elements
 
 Increment and decrement buttons receive:
-- `aria-label`: `"Increase value"` / `"Decrease value"` (localizable via prop)
+- `aria-label`: `"Increase"` / `"Decrease"`. To translate them, pass your own
+  `aria-label` on `<NumberField.Increment>` / `<NumberField.Decrement>` — it
+  overrides the default.
 - `tabIndex={-1}`: Buttons are intentionally outside the Tab order
 - `disabled`: When at `minValue`/`maxValue` or when the field is disabled
 
@@ -42,9 +45,9 @@ Increment and decrement buttons receive:
 |-----|--------|
 | ↑ | Increment by `step` |
 | ↓ | Decrement by `step` |
-| Shift + ↑ | Increment by `largeStep` (default 10) |
+| Shift + ↑ | Increment by `largeStep` (default `step × 10`) |
 | Shift + ↓ | Decrement by `largeStep` |
-| Ctrl/Cmd + ↑ | Increment by `smallStep` (default 0.1) |
+| Ctrl/Cmd + ↑ | Increment by `smallStep` (default `step × 0.1`) |
 | Ctrl/Cmd + ↓ | Decrement by `smallStep` |
 | Page Up | Increment by `largeStep` |
 | Page Down | Decrement by `largeStep` |
@@ -77,7 +80,23 @@ Use `aria-errormessage` (via `NumberField.ErrorMessage`) to announce errors:
 ```
 
 `NumberField.ErrorMessage` has `role="alert"` which causes screen readers to
-announce the message immediately when it appears.
+announce the message immediately when it appears. The input is automatically
+linked to it via `aria-errormessage` whenever the field is invalid.
+
+## Associating help text
+
+`<NumberField.ErrorMessage>` is wired to the input automatically. **Help text is
+not** — raqam does not yet auto-link `<NumberField.Description>` to the input.
+To describe a field for screen readers, give your help element an `id` and pass
+it as `aria-describedby` on `<NumberField.Input>`:
+
+```tsx
+<NumberField.Root locale="en-US">
+  <NumberField.Label>Quantity</NumberField.Label>
+  <NumberField.Input aria-describedby="qty-help" />
+  <p id="qty-help">Enter a value between 0 and 100.</p>
+</NumberField.Root>
+```
 
 ## Accessible label patterns
 
