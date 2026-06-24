@@ -1,5 +1,12 @@
 # raqam-docs
 
+## 0.0.7
+
+### Patch Changes
+
+- Updated dependencies [8f6cec1]
+  - raqam@0.3.2
+
 ## 0.0.6
 
 ### Patch Changes
