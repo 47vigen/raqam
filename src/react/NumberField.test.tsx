@@ -77,10 +77,10 @@ describe("NumberField ARIA attributes", () => {
     expect(screen.getByRole("spinbutton")).toHaveAttribute("aria-required");
   });
 
-  it("does not leave a dangling aria-labelledby when aria-label is on the Input and no Label is rendered", () => {
+  it("does not leave a dangling aria-labelledby on the input OR the group when no Label is rendered", () => {
     render(
       <NumberField.Root locale="en-US">
-        <NumberField.Group>
+        <NumberField.Group data-testid="group">
           <NumberField.Input data-testid="input" aria-label="Amount" />
         </NumberField.Group>
       </NumberField.Root>
@@ -88,6 +88,8 @@ describe("NumberField ARIA attributes", () => {
     const input = screen.getByTestId("input");
     expect(input).toHaveAttribute("aria-label", "Amount");
     expect(input).not.toHaveAttribute("aria-labelledby");
+    // The role="group" wrapper must not keep the dangling fallback either.
+    expect(screen.getByTestId("group")).not.toHaveAttribute("aria-labelledby");
   });
 
   it("respects an explicit aria-labelledby spread onto the Input", () => {
@@ -103,6 +105,21 @@ describe("NumberField ARIA attributes", () => {
       "aria-labelledby",
       "external-label"
     );
+  });
+
+  it("points the group's aria-labelledby at the rendered Label", () => {
+    render(
+      <NumberField.Root locale="en-US">
+        <NumberField.Label>Amount</NumberField.Label>
+        <NumberField.Group data-testid="group">
+          <NumberField.Input data-testid="input" />
+        </NumberField.Group>
+      </NumberField.Root>
+    );
+    const labelId = screen.getByText("Amount").getAttribute("id");
+    expect(labelId).toBeTruthy();
+    expect(screen.getByTestId("group")).toHaveAttribute("aria-labelledby", labelId);
+    expect(screen.getByTestId("input")).toHaveAttribute("aria-labelledby", labelId);
   });
 });
 
