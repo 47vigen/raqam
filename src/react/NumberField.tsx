@@ -53,7 +53,10 @@ function renderWith(
 // React 19 exposes a React element's `ref` as a regular prop; React ≤18 stores
 // it on the element itself (and reading `element.ref` on React 19 logs a
 // deprecation warning), so branch on the version to read it without warnings.
+// The same version boundary marks where callback refs may return a cleanup
+// function: React 19 runs it on detach, React ≤18 ignores it (and warns).
 const REF_IN_PROPS = Number.parseInt(React.version, 10) >= 19;
+const SUPPORTS_REF_CLEANUP = REF_IN_PROPS;
 
 function getElementRef(el: React.ReactElement): React.Ref<unknown> | undefined {
   if (REF_IN_PROPS) return (el.props as { ref?: React.Ref<unknown> }).ref;
@@ -61,14 +64,20 @@ function getElementRef(el: React.ReactElement): React.Ref<unknown> | undefined {
 }
 
 /**
- * Compose multiple refs (callback or object) into one callback ref. Honors
- * React 19 cleanup-returning callback refs: each function ref's returned cleanup
- * (or a synthesized `ref(null)` for legacy refs / `current = null` for object
- * refs) is collected and run from the combined ref's own returned cleanup, so
- * consumer cleanups aren't dropped on unmount/ref change.
+ * Compose multiple refs (callback or object) into one callback ref while
+ * preserving each ref's cleanup. For every ref we capture a cleanup — a function
+ * ref's returned cleanup, a synthesized `ref(null)` for legacy refs, or
+ * `current = null` for object refs — so consumer cleanups aren't dropped on
+ * unmount or ref change.
+ *
+ * The two React eras differ in HOW the combined cleanup gets back to React:
+ * - React 19 runs a cleanup returned from a callback ref, so we return one.
+ * - React ≤18 ignores (and warns about) a returned function and instead calls
+ *   the ref with `null` on detach, so we stash the cleanups in a closure and run
+ *   them on that `null` call rather than returning a function.
  */
 function mergeRefs<T>(...refs: (React.Ref<T> | undefined)[]): React.RefCallback<T> {
-  return (node) => {
+  const attach = (node: T | null): (() => void)[] => {
     const cleanups: (() => void)[] = [];
     for (const ref of refs) {
       if (ref == null) continue;
@@ -82,9 +91,23 @@ function mergeRefs<T>(...refs: (React.Ref<T> | undefined)[]): React.RefCallback<
         });
       }
     }
-    return () => {
-      for (const cleanup of cleanups) cleanup();
+    return cleanups;
+  };
+
+  if (SUPPORTS_REF_CLEANUP) {
+    return (node) => {
+      const cleanups = attach(node);
+      return () => {
+        for (const cleanup of cleanups) cleanup();
+      };
     };
+  }
+
+  // React ≤18: drive cleanups off the `null` detach call instead of a return.
+  let cleanups: (() => void)[] = [];
+  return (node) => {
+    for (const cleanup of cleanups) cleanup();
+    cleanups = node == null ? [] : attach(node);
   };
 }
 
