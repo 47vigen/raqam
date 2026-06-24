@@ -1,6 +1,6 @@
 "use client";
 
-import React, { forwardRef, useCallback, useEffect, useRef, useState } from "react";
+import React, { forwardRef, useRef } from "react";
 import type {
   NumberFieldRootProps,
   NumberFieldState,
@@ -41,36 +41,16 @@ function renderWith(
   );
 }
 
-// ── Accessible-name resolution helper ─────────────────────────────────────────
+// ── Ref merge helper ──────────────────────────────────────────────────────────
 
-/**
- * Resolve the `aria-labelledby` the hook hands to `<NumberField.Input>` /
- * `<NumberField.Group>`. The hook defaults it to `${id}-label`, which only
- * resolves when a `<NumberField.Label>` (id = that value) is actually rendered.
- * Strip that fallback when:
- *
- *  - the consumer names the element directly via `aria-label` / `aria-labelledby`
- *    (those are spread after `aria.*Props` and take over the name), or
- *  - no `<NumberField.Label>` is rendered, so the fallback would dangle — this
- *    covers the `<Group><Input aria-label="…" /></Group>` case where the Group
- *    can't see the Input's label and would otherwise keep `role="group"`
- *    pointing at a non-existent id.
- *
- * Complements the same guard inside `useNumberField` (which covers the headless
- * path, where the hook does see the consumer's `aria-label`).
- */
-function resolveAriaName<T extends { "aria-labelledby"?: string }>(
-  ariaProps: T,
-  labelId: string | undefined,
-  rest: { "aria-label"?: unknown; "aria-labelledby"?: unknown },
-  hasLabel: boolean
-): T {
-  const consumerNamed = rest["aria-label"] !== undefined || rest["aria-labelledby"] !== undefined;
-  const fallbackDangles = ariaProps["aria-labelledby"] === labelId && !hasLabel;
-  if (consumerNamed || fallbackDangles) {
-    return { ...ariaProps, "aria-labelledby": undefined };
-  }
-  return ariaProps;
+/** Compose multiple refs (callback or object) into one callback ref. */
+function mergeRefs<T>(...refs: (React.Ref<T> | undefined)[]): React.RefCallback<T> {
+  return (node) => {
+    for (const ref of refs) {
+      if (typeof ref === "function") ref(node);
+      else if (ref) (ref as React.MutableRefObject<T | null>).current = node;
+    }
+  };
 }
 
 // ── Data attributes helper ────────────────────────────────────────────────────
@@ -161,19 +141,6 @@ const Root = forwardRef<HTMLDivElement, NumberFieldRootProps>(function NumberFie
 
   const aria = useNumberField(wrappedProps, state, inputRef);
 
-  // Track whether a <NumberField.Label> is mounted so Input/Group only keep the
-  // hook's `${id}-label` fallback when it actually resolves to a rendered label.
-  const labelCountRef = useRef(0);
-  const [hasLabel, setHasLabel] = useState(false);
-  const registerLabel = useCallback(() => {
-    labelCountRef.current += 1;
-    setHasLabel(true);
-    return () => {
-      labelCountRef.current -= 1;
-      if (labelCountRef.current === 0) setHasLabel(false);
-    };
-  }, []);
-
   // Determine if field is invalid (out-of-range or failed validate)
   const isInvalid =
     state.validationState === "invalid" ||
@@ -182,9 +149,7 @@ const Root = forwardRef<HTMLDivElement, NumberFieldRootProps>(function NumberFie
         (props.maxValue !== undefined && state.numberValue > props.maxValue)));
 
   return (
-    <NumberFieldContext.Provider
-      value={{ state, aria, inputRef, props: wrappedProps, hasLabel, registerLabel }}
-    >
+    <NumberFieldContext.Provider value={{ state, aria, inputRef, props: wrappedProps }}>
       <div
         ref={ref}
         {...(divProps as React.HTMLAttributes<HTMLDivElement>)}
@@ -207,11 +172,12 @@ const Label = forwardRef<HTMLLabelElement, LabelProps>(function NumberFieldLabel
   { render, children, ...rest },
   ref
 ) {
-  const { aria, state, registerLabel } = useNumberFieldContext();
-  // Announce this label so Input/Group keep their `aria-labelledby` fallback.
-  useEffect(() => registerLabel(), [registerLabel]);
+  const { aria, state } = useNumberFieldContext();
+  // labelProps carries a registration ref; merge it with the forwarded ref so
+  // both fire (the registration is what keeps Input/Group's aria-labelledby).
+  const { ref: labelRef, ...labelProps } = aria.labelProps;
   const el = (
-    <label ref={ref} {...aria.labelProps} {...rest}>
+    <label ref={mergeRefs(ref, labelRef)} {...labelProps} {...rest}>
       {children}
     </label>
   );
@@ -229,13 +195,9 @@ const Group = forwardRef<HTMLDivElement, GroupProps>(function NumberFieldGroup(
   { render, children, ...rest },
   ref
 ) {
-  const { aria, state, hasLabel } = useNumberFieldContext();
+  const { aria, state } = useNumberFieldContext();
   const el = (
-    <div
-      ref={ref}
-      {...resolveAriaName(aria.groupProps, aria.labelProps.id, rest, hasLabel)}
-      {...rest}
-    >
+    <div ref={ref} {...aria.groupProps} {...rest}>
       {children}
     </div>
   );
@@ -252,13 +214,9 @@ const Input = forwardRef<HTMLInputElement, InputProps>(function NumberFieldInput
   { render, ...rest },
   _ref
 ) {
-  const { aria, state, inputRef, hasLabel } = useNumberFieldContext();
+  const { aria, state, inputRef } = useNumberFieldContext();
   const el = (
-    <input
-      ref={inputRef as React.RefObject<HTMLInputElement>}
-      {...resolveAriaName(aria.inputProps, aria.labelProps.id, rest, hasLabel)}
-      {...rest}
-    />
+    <input ref={inputRef as React.RefObject<HTMLInputElement>} {...aria.inputProps} {...rest} />
   );
   return renderWith(el, render, state);
 });

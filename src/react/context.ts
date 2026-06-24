@@ -7,10 +7,6 @@ export interface NumberFieldContextValue {
   aria: NumberFieldAria;
   inputRef: RefObject<HTMLInputElement | null>;
   props: UseNumberFieldProps;
-  /** Whether a `<NumberField.Label>` is currently rendered in the tree. */
-  hasLabel: boolean;
-  /** Register a mounted `<NumberField.Label>`; returns an unregister cleanup. */
-  registerLabel: () => () => void;
 }
 
 export const NumberFieldContext = createContext<NumberFieldContextValue | null>(null);

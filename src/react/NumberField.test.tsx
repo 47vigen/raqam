@@ -2,6 +2,18 @@ import { describe, it, expect, vi } from "vitest";
 import { render, screen, fireEvent } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { NumberField } from "./NumberField.js";
+import { useNumberFieldContext } from "./context.js";
+
+// A label built from the exported primitives instead of <NumberField.Label> —
+// it must still register (via labelProps' ref) so the group/input stay wired.
+function CustomLabel({ children }: { children: React.ReactNode }) {
+  const { aria } = useNumberFieldContext();
+  return (
+    <label data-testid="custom-label" {...aria.labelProps}>
+      {children}
+    </label>
+  );
+}
 
 // Helper that renders a standard NumberField
 function renderField(props: Parameters<typeof NumberField.Root>[0] = {}) {
@@ -117,6 +129,21 @@ describe("NumberField ARIA attributes", () => {
       </NumberField.Root>
     );
     const labelId = screen.getByText("Amount").getAttribute("id");
+    expect(labelId).toBeTruthy();
+    expect(screen.getByTestId("group")).toHaveAttribute("aria-labelledby", labelId);
+    expect(screen.getByTestId("input")).toHaveAttribute("aria-labelledby", labelId);
+  });
+
+  it("keeps group/input wired for a custom label built from aria.labelProps", () => {
+    render(
+      <NumberField.Root locale="en-US">
+        <CustomLabel>Amount</CustomLabel>
+        <NumberField.Group data-testid="group">
+          <NumberField.Input data-testid="input" />
+        </NumberField.Group>
+      </NumberField.Root>
+    );
+    const labelId = screen.getByTestId("custom-label").getAttribute("id");
     expect(labelId).toBeTruthy();
     expect(screen.getByTestId("group")).toHaveAttribute("aria-labelledby", labelId);
     expect(screen.getByTestId("input")).toHaveAttribute("aria-labelledby", labelId);

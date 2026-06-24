@@ -2,16 +2,18 @@
 "raqam": patch
 ---
 
-Fix dangling `aria-labelledby` in the NumberField component API when no `<NumberField.Label>` is rendered
+Fix dangling `aria-labelledby` when no label is rendered (all API paths)
 
-The previous fix only covered the headless `useNumberField` path. In the component
-API, `aria-label` / `aria-labelledby` are spread onto `<NumberField.Input>` /
-`<NumberField.Group>` *after* `aria.*Props`, so the hook never sees them and its
-fallback `aria-labelledby` (`${id}-label`) stayed on the element — dangling when no
-`<NumberField.Label>` is rendered, and winning over the consumer's `aria-label`.
+The earlier fix only covered the headless `useNumberField` path. The input's and
+group's `aria-labelledby` defaulted to `${id}-label` unconditionally, which only
+resolves when a label element is actually rendered — otherwise it dangled (the
+"aria-labelledby doesn't match any element id" warning) and, since
+`aria-labelledby` wins over `aria-label`, broke the accessible name.
 
-`<NumberField.Label>` now registers its presence via context, and both
-`<NumberField.Input>` and `<NumberField.Group>` only keep the `${id}-label`
-fallback when a label is actually rendered (or drop it when the consumer names the
-element directly). This also fixes the `role="group"` wrapper, which previously
-kept a dangling reference even when the `aria-label` lived on the child input.
+`labelProps` now carries a `ref` that registers the label's presence with the
+hook, so `inputProps`/`groupProps` only add `aria-labelledby` when a label is
+genuinely mounted. Because the signal travels on `labelProps` itself, this works
+for every render path — the built-in `<NumberField.Label>`, a custom label built
+from `useNumberFieldContext()` + `aria.labelProps`, and the fully headless hook —
+without dropping the wiring for legitimately-rendered labels (including the
+`role="group"` wrapper). Spread `labelProps` as-is; don't strip its `ref`.
