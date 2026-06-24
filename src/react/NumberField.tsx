@@ -1,6 +1,6 @@
 "use client";
 
-import React, { forwardRef, useRef } from "react";
+import React, { forwardRef, useMemo, useRef } from "react";
 import type {
   NumberFieldRootProps,
   NumberFieldState,
@@ -66,13 +66,31 @@ function getElementRef(el: React.ReactElement): React.Ref<unknown> | undefined {
   return (el as unknown as { ref?: React.Ref<unknown> }).ref;
 }
 
-/** Compose multiple refs (callback or object) into one callback ref. */
+/**
+ * Compose multiple refs (callback or object) into one callback ref. Honors
+ * React 19 cleanup-returning callback refs: each function ref's returned cleanup
+ * (or a synthesized `ref(null)` for legacy refs / `current = null` for object
+ * refs) is collected and run from the combined ref's own returned cleanup, so
+ * consumer cleanups aren't dropped on unmount/ref change.
+ */
 function mergeRefs<T>(...refs: (React.Ref<T> | undefined)[]): React.RefCallback<T> {
   return (node) => {
+    const cleanups: (() => void)[] = [];
     for (const ref of refs) {
-      if (typeof ref === "function") ref(node);
-      else if (ref) (ref as React.MutableRefObject<T | null>).current = node;
+      if (ref == null) continue;
+      if (typeof ref === "function") {
+        const result = ref(node);
+        cleanups.push(typeof result === "function" ? result : () => ref(null));
+      } else {
+        (ref as React.MutableRefObject<T | null>).current = node;
+        cleanups.push(() => {
+          (ref as React.MutableRefObject<T | null>).current = null;
+        });
+      }
     }
+    return () => {
+      for (const cleanup of cleanups) cleanup();
+    };
   };
 }
 
@@ -201,9 +219,10 @@ const Label = forwardRef<HTMLLabelElement, LabelProps>(function NumberFieldLabel
   // labelProps carries a registration ref; merge it with the forwarded ref so
   // both fire (the registration is what keeps Input/Group's aria-labelledby).
   // Pass the merged ref to renderWith too, so it survives the render-prop path
-  // where React 18 would otherwise drop it.
+  // where React 18 would otherwise drop it. Memoized for a stable identity so
+  // React doesn't detach/reattach (and re-run ref cleanups) every render.
   const { ref: labelRef, ...labelProps } = aria.labelProps;
-  const mergedRef = mergeRefs(ref, labelRef);
+  const mergedRef = useMemo(() => mergeRefs(ref, labelRef), [ref, labelRef]);
   const el = (
     <label ref={mergedRef} {...labelProps} {...rest}>
       {children}

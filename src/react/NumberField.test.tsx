@@ -213,6 +213,25 @@ describe("NumberField ARIA attributes", () => {
     expect(screen.getByTestId("group")).toHaveAttribute("aria-labelledby", labelId);
     expect(screen.getByTestId("input")).toHaveAttribute("aria-labelledby", labelId);
   });
+
+  it("runs a consumer ref's React 19 cleanup function on unmount", () => {
+    const cleanup = vi.fn();
+    const refWithCleanup = vi.fn(() => cleanup);
+    const { unmount } = render(
+      <NumberField.Root locale="en-US">
+        <NumberField.Label ref={refWithCleanup}>Amount</NumberField.Label>
+        <NumberField.Group>
+          <NumberField.Input data-testid="input" />
+        </NumberField.Group>
+      </NumberField.Root>
+    );
+    // Merged ref is memoized → the consumer ref attaches once and its cleanup is
+    // preserved (not dropped) and runs exactly once on unmount.
+    expect(refWithCleanup).toHaveBeenCalledTimes(1);
+    expect(cleanup).not.toHaveBeenCalled();
+    unmount();
+    expect(cleanup).toHaveBeenCalledTimes(1);
+  });
 });
 
 describe("NumberField input type", () => {
