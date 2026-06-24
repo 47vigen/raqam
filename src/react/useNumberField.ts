@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useId, useLayoutEffect, useMemo, useRef } from "react";
 import { computeNewCursorPosition } from "../core/cursor.js";
 import { createFormatter } from "../core/formatter.js";
-import { normalizeDigits } from "../core/normalizer.js";
+import { localizeDigits, normalizeDigits } from "../core/normalizer.js";
 import { createParser } from "../core/parser.js";
 import type { NumberFieldAria, NumberFieldState, UseNumberFieldProps } from "../core/types.js";
 import { usePressAndHold } from "./usePressAndHold.js";
@@ -14,6 +14,36 @@ function escapeRegex(s: string): string {
   // Escaping hyphen prevents it from being misinterpreted as a range indicator
   // inside a character class (e.g. [.--] would be invalid without this)
   return s.replace(/[.*+?^${}()|[\]\\\-]/g, "\\$&");
+}
+
+/**
+ * Parse scientific ("1e3", "1.23E4") and compact ("1.5K", "3.4M") notation that
+ * the plain locale parser cannot handle. Used on paste so values copied from
+ * spreadsheets / dashboards round-trip instead of being mangled by char-strip.
+ * Returns null when `s` is not one of these forms.
+ */
+function parseSpecialNotation(s: string): number | null {
+  const t = s.replace(/\s+/g, "");
+  if (/^[+-]?(?:\d+\.?\d*|\.\d+)[eE][+-]?\d+$/.test(t)) {
+    const n = Number(t);
+    return Number.isFinite(n) ? n : null;
+  }
+  const m = t.match(/^([+-]?(?:\d+\.?\d*|\.\d+))(k|m|b|t|thousand|million|billion|trillion)$/i);
+  if (m) {
+    const mult: Record<string, number> = {
+      k: 1e3,
+      thousand: 1e3,
+      m: 1e6,
+      million: 1e6,
+      b: 1e9,
+      billion: 1e9,
+      t: 1e12,
+      trillion: 1e12,
+    };
+    const n = Number(m[1]) * mult[m[2].toLowerCase()]!;
+    return Number.isFinite(n) ? n : null;
+  }
+  return null;
 }
 
 export function useNumberField(
@@ -29,7 +59,7 @@ export function useNumberField(
     allowNegative = true,
     allowDecimal = true,
     allowMouseWheel = false,
-    liveFormat = true,
+    liveFormat: rawLiveFormat = true,
     prefix,
     suffix,
     name,
@@ -48,6 +78,16 @@ export function useNumberField(
     parseValue: customParseValue,
   } = props; // formatValue/parseValue are on UseNumberFieldStateOptions (inherited)
 
+  // Compact/scientific/engineering notation produce formatted strings ("2.5K",
+  // "1.5E3") whose suffix/exponent characters collide with continued typing, so
+  // we keep the raw typed digits live and only format on blur/commit.
+  const notation = formatOptions?.notation;
+  const liveFormat =
+    rawLiveFormat &&
+    notation !== "compact" &&
+    notation !== "scientific" &&
+    notation !== "engineering";
+
   const { step = 1, largeStep = step * 10, smallStep = step * 0.1 } = state.options;
 
   const autoId = useId();
@@ -57,6 +97,11 @@ export function useNumberField(
   const errorId = `${inputId}-error`;
 
   // ── Formatter & parser (kept in sync with state's) ──────────────────────
+  // Mirror the state hook: drop fraction padding when decimals are disallowed.
+  const effMinFrac = allowDecimal ? minimumFractionDigits : 0;
+  const effMaxFrac = allowDecimal ? maximumFractionDigits : 0;
+  const effFixedScale = allowDecimal ? fixedDecimalScale : false;
+
   const formatter = useMemo(
     () =>
       createFormatter({
@@ -64,20 +109,38 @@ export function useNumberField(
         formatOptions,
         prefix,
         suffix,
-        minimumFractionDigits,
-        maximumFractionDigits,
-        fixedDecimalScale,
+        minimumFractionDigits: effMinFrac,
+        maximumFractionDigits: effMaxFrac,
+        fixedDecimalScale: effFixedScale,
       }),
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [
-      locale,
-      JSON.stringify(formatOptions),
-      prefix,
-      suffix,
-      minimumFractionDigits,
-      maximumFractionDigits,
-      fixedDecimalScale,
-    ]
+    [locale, JSON.stringify(formatOptions), prefix, suffix, effMinFrac, effMaxFrac, effFixedScale]
+  );
+
+  // Live-typing formatter: keeps grouping + currency symbol but drops the
+  // minimum-fraction *padding* (".00") so currency / fixedDecimalScale fields
+  // group correctly while typing and never accumulate padding zeros. The full
+  // `formatter` (with padding) is applied on commit/blur.
+  //
+  // Percent fields default to maximumFractionDigits:0, which would round away
+  // the fraction the user is typing ("12.5" → "13%") and — because the rounded
+  // string is shorter — corrupt the next keystroke. Give the percent live
+  // formatter room so typing never rounds; commit() rounds to the real scale.
+  const isPercentStyle = formatOptions?.style === "percent";
+  const liveMaxFrac = allowDecimal ? (isPercentStyle ? 20 : effMaxFrac) : 0;
+  const liveFormatter = useMemo(
+    () =>
+      createFormatter({
+        locale,
+        formatOptions,
+        prefix,
+        suffix,
+        minimumFractionDigits: 0,
+        maximumFractionDigits: liveMaxFrac,
+        fixedDecimalScale: false,
+      }),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [locale, JSON.stringify(formatOptions), prefix, suffix, liveMaxFrac]
   );
 
   const parser = useMemo(
@@ -92,6 +155,40 @@ export function useNumberField(
       }),
     // eslint-disable-next-line react-hooks/exhaustive-deps
     [locale, JSON.stringify(formatOptions), allowNegative, allowDecimal, prefix, suffix]
+  );
+
+  // Re-format `value` so its integer part groups while the EXACT typed fraction
+  // (incl. trailing zeros) from `source` is preserved. Returns null when there is
+  // no integer part (leading-dot ".5" — keep it raw to avoid a "0" prepend that
+  // would shift the caret) or no fraction (trailing dot). Used by the typing path
+  // and the grouping-comma / trailing-affordance backspace paths so they all
+  // preserve typed trailing zeros consistently.
+  const formatGroupedFraction = useCallback(
+    (value: number, source: string): string | null => {
+      const info = formatter.getLocaleInfo();
+      let decIdx = source.lastIndexOf(info.decimalSeparator);
+      // Fall back to an ASCII "." only when it stands in for the decimal point
+      // (not when "." is the grouping separator, e.g. de-DE — see Fix J).
+      if (decIdx === -1 && info.decimalSeparator !== "." && info.groupingSeparator !== ".") {
+        decIdx = source.lastIndexOf(".");
+      }
+      if (decIdx === -1) return null;
+      if (!/\d/.test(normalizeDigits(source.slice(0, decIdx)))) return null; // leading dot
+      const fracMatch = normalizeDigits(source.slice(decIdx + 1)).match(/^\d+/);
+      if (!fracMatch) return null; // trailing dot
+      const fracLen = Math.min(fracMatch[0].length, effMaxFrac ?? 20, 20);
+      if (fracLen === 0) return null;
+      return createFormatter({
+        locale,
+        formatOptions,
+        prefix,
+        suffix,
+        minimumFractionDigits: fracLen,
+        maximumFractionDigits: fracLen,
+      }).format(value);
+    },
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [formatter, locale, JSON.stringify(formatOptions), prefix, suffix, effMaxFrac]
   );
 
   // ── Cursor engine ────────────────────────────────────────────────────────
@@ -167,11 +264,12 @@ export function useNumberField(
       } else if (liveFormat) {
         const result = parser.parse(normalized);
         if (result.isIntermediate) {
-          displayValue = normalized;
+          // Keep the still-typing display in the locale's native digit script.
+          displayValue = localizeDigits(normalized, info.zero);
         } else if (result.value !== null) {
           displayValue = customFormatValue
             ? customFormatValue(result.value)
-            : formatter.format(result.value);
+            : liveFormatter.format(result.value);
         } else {
           displayValue = normalized === "" ? "" : normalized;
         }
@@ -190,7 +288,7 @@ export function useNumberField(
       state._setLastChangeReason("input");
       state.setInputValue(displayValue);
     },
-    [formatter, parser, liveFormat, state, customFormatValue, customParseValue]
+    [formatter, liveFormatter, parser, liveFormat, state, customFormatValue, customParseValue]
   );
 
   // ── onChange handler ─────────────────────────────────────────────────────
@@ -208,9 +306,33 @@ export function useNumberField(
       }
 
       // Normalise non-Latin digits
-      const normalized = normalizeDigits(rawInputValue);
+      let normalized = normalizeDigits(rawInputValue);
+
+      // Drop characters disallowed by the constraint flags *live*, so the field
+      // never shows an invalid string that gets wiped on blur. The minus / dot
+      // keys simply do nothing instead of poisoning the value.
+      if (!allowNegative) {
+        normalized = normalized.split("-").join("").split(info.minusSign).join("");
+      }
+      if (!allowDecimal) {
+        normalized = normalized.split(".").join("").split(info.decimalSeparator).join("");
+      } else if (info.decimalSeparator !== "." && info.groupingSeparator !== ".") {
+        // Latin-keyboard users type the ASCII "." as the decimal point even in
+        // locales whose separator is non-ASCII (ar/fa: ٫). Map a "." that is part
+        // of a number (adjacent to a digit) onto the locale separator so the value
+        // parses and the caret engine (which only tracks the locale separator)
+        // doesn't strand the dot. Dots inside a symbol (e.g. the Arabic currency
+        // symbol "ج.م.") are NOT adjacent to digits, so they stay untouched.
+        // Skipped entirely when "." is the grouping separator (e.g. de-DE).
+        normalized = normalized.replace(/\./g, (_m, offset: number, str: string) =>
+          /\d/.test(str[offset - 1] ?? "") || /\d/.test(str[offset + 1] ?? "")
+            ? info.decimalSeparator
+            : "."
+        );
+      }
 
       let displayValue: string;
+      let knownValue: number | null | undefined;
 
       // Custom parse/format escape hatch
       if (customParseValue) {
@@ -232,13 +354,35 @@ export function useNumberField(
         const result = parser.parse(normalized);
 
         if (result.isIntermediate) {
-          // Preserve intermediate states (lone "-", trailing "1.", etc.)
-          displayValue = normalized;
+          // A trailing-zero decimal (e.g. "12.50") is intermediate, but its
+          // integer part should still group live (insert "99" into "$12.50" must
+          // show "$9,912.50"). Re-format preserving the typed fraction; lone "-",
+          // trailing "." and leading "." keep the raw form.
+          const grouped =
+            !customFormatValue && result.value !== null
+              ? formatGroupedFraction(result.value, normalized)
+              : null;
+          displayValue = grouped ?? localizeDigits(normalized, info.zero);
         } else if (result.value !== null) {
-          displayValue = customFormatValue
-            ? customFormatValue(result.value)
-            : formatter.format(result.value);
-        } else if (normalized === "") {
+          if (customFormatValue) {
+            displayValue = customFormatValue(result.value);
+          } else {
+            displayValue = liveFormatter.format(result.value);
+            // The display will be re-parsed by setInputValue. For invertible
+            // formats that round-trips (and rounds the value to the displayed
+            // precision); for non-invertible notation (compact "2.5K",
+            // scientific, unit) re-parsing destroys magnitude — so pass the
+            // exact typed value through when the format does not round-trip.
+            const rt = parser.parse(displayValue).value;
+            knownValue =
+              rt !== null && Number.isFinite(rt) && liveFormatter.format(rt) === displayValue
+                ? rt
+                : result.value;
+          }
+        } else if (normalized === "" || !/\d/.test(normalized)) {
+          // Empty, or only formatting affordances left (a lone "%", suffix, etc.
+          // after deleting the last digit) — clear the field instead of stranding
+          // the orphaned characters.
           displayValue = "";
         } else {
           // Invalid input — keep the raw normalised string so the user can
@@ -266,9 +410,18 @@ export function useNumberField(
       }
 
       state._setLastChangeReason("input");
-      state.setInputValue(displayValue);
+      state.setInputValue(displayValue, knownValue);
     },
-    [formatter, parser, liveFormat, state, customFormatValue, customParseValue]
+    [
+      formatter,
+      liveFormatter,
+      parser,
+      liveFormat,
+      state,
+      customFormatValue,
+      customParseValue,
+      formatGroupedFraction,
+    ]
   );
 
   // ── Paste handler ────────────────────────────────────────────────────────
@@ -282,7 +435,17 @@ export function useNumberField(
       const stripped = text.replace(/[€$£¥₹₺₽﷼฿₩¢₦₨₪₫₱]/g, "").trim();
 
       // 2. Normalize non-Latin digits to ASCII
-      const normalized = normalizeDigits(stripped);
+      let normalized = normalizeDigits(stripped);
+
+      // Honour the constraint flags on paste too (drop minus / decimal).
+      if (!allowNegative) {
+        const li = formatter.getLocaleInfo();
+        normalized = normalized.split("-").join("").split(li.minusSign).join("");
+      }
+      if (!allowDecimal) {
+        const li = formatter.getLocaleInfo();
+        normalized = normalized.split(".").join("").split(li.decimalSeparator).join("");
+      }
 
       state._setLastChangeReason("paste");
 
@@ -293,9 +456,23 @@ export function useNumberField(
           const formatted = customFormatValue
             ? customFormatValue(result.value)
             : formatter.format(result.value);
-          state.setInputValue(formatted);
+          // Pass the known value so a non-invertible format (compact/scientific)
+          // is not re-parsed into a wrong magnitude.
+          state.setInputValue(formatted, result.value);
           pendingCursor.current = formatted.length;
         }
+        return;
+      }
+
+      // 2.5 Scientific / compact notation (1e3, 1.23E4, 1.5K…) before the
+      // locale parser, whose char-strip would otherwise mangle the e / K.
+      const special = parseSpecialNotation(normalized);
+      if (special !== null) {
+        const isPercent = formatOptions?.style === "percent";
+        const sval = isPercent ? special / 100 : special;
+        const formatted = customFormatValue ? customFormatValue(sval) : formatter.format(sval);
+        state.setInputValue(formatted, sval);
+        pendingCursor.current = formatted.length;
         return;
       }
 
@@ -304,7 +481,7 @@ export function useNumberField(
 
       if (result.value !== null) {
         const formatted = formatter.format(result.value);
-        state.setInputValue(formatted);
+        state.setInputValue(formatted, result.value);
         pendingCursor.current = formatted.length;
         return;
       }
@@ -320,7 +497,7 @@ export function useNumberField(
 
       if (result2.value !== null) {
         const formatted = formatter.format(result2.value);
-        state.setInputValue(formatted);
+        state.setInputValue(formatted, result2.value);
         pendingCursor.current = formatted.length;
       }
       // If still invalid, silently discard — don't paste garbage into the field
@@ -376,10 +553,15 @@ export function useNumberField(
       // Same applies for negative values: "-1.00" → type "." → cursor after "."
       if (!e.metaKey && !e.ctrlKey && !e.altKey && allowDecimal) {
         const localeInfo = formatter.getLocaleInfo();
-        // Match only the locale's decimal separator key (e.g. "." for en-US,
-        // "," for de-DE). Do NOT also match "." universally — in comma-decimal
-        // locales "." is the grouping separator and should not trigger a jump.
-        if (key === localeInfo.decimalSeparator) {
+        // Match the locale's decimal separator key (e.g. "." for en-US, "," for
+        // de-DE), plus the ASCII "." when it stands in for a non-ASCII separator
+        // (ar/fa). Do NOT match "." when it is the grouping separator (de-DE).
+        const isDecimalKey =
+          key === localeInfo.decimalSeparator ||
+          (key === "." &&
+            localeInfo.decimalSeparator !== "." &&
+            localeInfo.groupingSeparator !== ".");
+        if (isDecimalKey) {
           const input = inputRef.current;
           if (input) {
             const decPos = input.value.indexOf(localeInfo.decimalSeparator);
@@ -411,15 +593,80 @@ export function useNumberField(
             const parseResult = parser.parse(rawEdited);
 
             state._setLastChangeReason("input");
+            let nextDisplay: string;
             if (parseResult.value !== null) {
-              const formatted = formatter.format(parseResult.value);
-              state.setInputValue(formatted);
+              // Preserve typed trailing zeros; use the LIVE formatter (no
+              // min-fraction padding) so editing matches the typing display.
+              nextDisplay =
+                formatGroupedFraction(parseResult.value, rawEdited) ??
+                liveFormatter.format(parseResult.value);
+              state.setInputValue(nextDisplay, parseResult.value);
             } else {
               // Empty or intermediate — store as-is (blur will clean up)
+              nextDisplay = rawEdited;
               state.setInputValue(rawEdited);
             }
-            pendingCursor.current = cursor - 2;
+            // Remap the caret through the cursor engine so re-grouping shifts
+            // (e.g. "1,234,567" → "123,567") never leave it stranded after a comma.
+            pendingCursor.current = computeNewCursorPosition(
+              rawEdited,
+              cursor - 2,
+              nextDisplay,
+              info,
+              "deleteContentBackward"
+            );
             return;
+          }
+
+          // Backspace over a trailing affordance (% sign, suffix like " kg") —
+          // the browser would delete the affordance char, but the formatter
+          // immediately re-appends it, so the field never changes. Instead delete
+          // the digit that precedes the affordance run. Digit detection is
+          // script-aware (\p{Nd}) so it works for native digits (fa/ar) too.
+          const isDigitChar = (ch: string | undefined): boolean =>
+            ch !== undefined && /\p{Nd}/u.test(ch);
+          const isAffordanceChar = (ch: string | undefined): boolean =>
+            ch !== undefined &&
+            !isDigitChar(ch) &&
+            ch !== info.decimalSeparator &&
+            ch !== info.minusSign &&
+            ch !== "-";
+          if (
+            cursor === selEnd &&
+            cursor === currentValue.length &&
+            cursor >= 1 &&
+            isAffordanceChar(currentValue[cursor - 1])
+          ) {
+            // Walk back over the trailing affordance run to the last real char.
+            let i = cursor;
+            while (i > 0 && isAffordanceChar(currentValue[i - 1])) i--;
+            if (i > 0 && isDigitChar(currentValue[i - 1])) {
+              e.preventDefault();
+              const rawEdited = currentValue.slice(0, i - 1) + currentValue.slice(i);
+              const parseResult = parser.parse(rawEdited);
+              state._setLastChangeReason("input");
+              let nextDisplay: string;
+              if (parseResult.value !== null && /\p{Nd}/u.test(rawEdited)) {
+                // Use the LIVE formatter (no min-fraction padding) so the display
+                // matches the typing path — never re-pad ".00" mid-edit.
+                nextDisplay =
+                  formatGroupedFraction(parseResult.value, rawEdited) ??
+                  liveFormatter.format(parseResult.value);
+                state.setInputValue(nextDisplay, parseResult.value);
+              } else {
+                // No digits left — clear the field (don't strand the affordance).
+                nextDisplay = "";
+                state.setInputValue("");
+              }
+              pendingCursor.current = computeNewCursorPosition(
+                rawEdited,
+                i - 1,
+                nextDisplay,
+                info,
+                "deleteContentBackward"
+              );
+              return;
+            }
           }
         }
       }
@@ -485,8 +732,11 @@ export function useNumberField(
       minValue,
       maxValue,
       formatter,
+      liveFormatter,
       parser,
       inputRef,
+      allowDecimal,
+      formatGroupedFraction,
     ]
   );
 

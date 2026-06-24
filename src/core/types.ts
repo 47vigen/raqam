@@ -158,8 +158,12 @@ export interface NumberFieldState {
   _setLastChangeReason: (reason: ChangeReason) => void;
   /** Internal: read the current change reason (used by NumberField.Root) */
   _getLastChangeReason: () => ChangeReason;
-  /** Update display string (triggers parse + onChange) */
-  setInputValue: (val: string) => void;
+  /**
+   * Update display string (triggers parse + onChange). `knownValue` overrides
+   * the parsed value when `val` is a formatted string that cannot be reversed
+   * (compact "2.5K", scientific, unit notation).
+   */
+  setInputValue: (val: string, knownValue?: number | null) => void;
   /** Directly set the numeric value (triggers format + onChange) */
   setNumberValue: (val: number | null) => void;
   /** Format + clamp on blur — call from onBlur */

@@ -56,6 +56,19 @@ export function normalizeDigits(input: string): string {
 }
 
 /**
+ * Inverse of {@link normalizeDigits}: map ASCII digits 0–9 to the locale's
+ * native digit block (identified by its "zero" character). No-op when the
+ * locale already uses ASCII digits. Used to keep intermediate (still-typing)
+ * display strings in the user's native script.
+ */
+export function localizeDigits(input: string, zero: string): string {
+  if (!zero || zero === "0") return input;
+  const base = zero.codePointAt(0);
+  if (base === undefined) return input;
+  return input.replace(/[0-9]/g, (d) => String.fromCodePoint(base + (d.charCodeAt(0) - 48)));
+}
+
+/**
  * Returns true if the character is a non-Latin Unicode decimal digit
  * (i.e. would need normalization).
  */

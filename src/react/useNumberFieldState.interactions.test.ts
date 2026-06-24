@@ -68,8 +68,9 @@ describe("Typing decimals", () => {
     );
     act(() => result.current.setInputValue("23."));
     expect(result.current.inputValue).toBe("23.");
-    // numberValue is null for intermediate state
-    expect(result.current.numberValue).toBeNull();
+    // Display preserved as typed, but the value already resolves to 23 so a
+    // blur never wipes it (no data loss on trailing decimal).
+    expect(result.current.numberValue).toBe(23);
   });
 
   it("continues from intermediate to complete decimal", () => {
@@ -164,7 +165,8 @@ describe("Typing negative numbers", () => {
     );
     act(() => result.current.setInputValue("-0."));
     expect(result.current.inputValue).toBe("-0.");
-    expect(result.current.numberValue).toBeNull();
+    // Intermediate value resolves (≈0) instead of null, so it is never wiped.
+    expect(result.current.numberValue).not.toBeNull();
   });
 });
 

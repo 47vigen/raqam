@@ -21,7 +21,16 @@ function preciseAdd(a: number, b: number): number {
 }
 
 function decimalPlaces(n: number): number {
+  if (!Number.isFinite(n)) return 0;
   const s = String(n);
+  // Exponential form (e.g. "1e-7", "1.5e-7") — String() uses it below 1e-6.
+  const eIdx = s.indexOf("e");
+  if (eIdx !== -1) {
+    const exp = Number(s.slice(eIdx + 1));
+    const dotIdx = s.indexOf(".");
+    const fracLen = dotIdx === -1 ? 0 : eIdx - dotIdx - 1;
+    return Math.max(0, fracLen - exp);
+  }
   const idx = s.indexOf(".");
   return idx === -1 ? 0 : s.length - idx - 1;
 }
@@ -51,6 +60,13 @@ export function useNumberFieldState(options: UseNumberFieldStateOptions): Number
     formatValue: customFormatValue,
   } = options;
 
+  // When decimals are disallowed, force the formatter to 0 fraction digits so
+  // currency / fixedDecimalScale never pad ".00" (which the dot-strip would then
+  // re-read, exploding the value). See XF-2.
+  const effMinFrac = allowDecimal ? minimumFractionDigits : 0;
+  const effMaxFrac = allowDecimal ? maximumFractionDigits : 0;
+  const effFixedScale = allowDecimal ? fixedDecimalScale : false;
+
   // ── Formatter & parser (re-created only when deps change) ──────────────────
   const formatter = useMemo(
     () =>
@@ -59,9 +75,9 @@ export function useNumberFieldState(options: UseNumberFieldStateOptions): Number
         formatOptions,
         prefix,
         suffix,
-        minimumFractionDigits,
-        maximumFractionDigits,
-        fixedDecimalScale,
+        minimumFractionDigits: effMinFrac,
+        maximumFractionDigits: effMaxFrac,
+        fixedDecimalScale: effFixedScale,
       }),
     // eslint-disable-next-line react-hooks/exhaustive-deps
     [
@@ -70,9 +86,9 @@ export function useNumberFieldState(options: UseNumberFieldStateOptions): Number
       JSON.stringify(formatOptions),
       prefix,
       suffix,
-      minimumFractionDigits,
-      maximumFractionDigits,
-      fixedDecimalScale,
+      effMinFrac,
+      effMaxFrac,
+      effFixedScale,
     ]
   );
 
@@ -97,11 +113,21 @@ export function useNumberFieldState(options: UseNumberFieldStateOptions): Number
     onChange: options.onChange,
   });
 
+  // Last numeric value we emitted ourselves — used to tell our own onChange echo
+  // apart from a genuine external controlled-value change (see sync block below).
+  const lastEmittedRef = useRef<number | null | undefined>(
+    options.value ?? options.defaultValue ?? null
+  );
+
   // ── Display string ─────────────────────────────────────────────────────────
   // Stored in local state — can transiently diverge from numberValue
   // (e.g. while typing "1." which isn't a valid JS number yet)
   const formatDisplay = useCallback(
-    (n: number): string => (customFormatValue ? customFormatValue(n) : formatter.format(n)),
+    (n: number): string =>
+      // Normalise -0 so it never renders as "-0" on any path (mount included).
+      customFormatValue
+        ? customFormatValue(Object.is(n, -0) ? 0 : n)
+        : formatter.format(Object.is(n, -0) ? 0 : n),
     // eslint-disable-next-line react-hooks/exhaustive-deps
     [formatter, customFormatValue]
   );
@@ -171,17 +197,42 @@ export function useNumberFieldState(options: UseNumberFieldStateOptions): Number
   }, []);
 
   // ── Sync controlled value → display string when value changes externally ───
+  // We must distinguish a *genuine* external change (parent set a new value,
+  // form reset/prefill, etc.) from the echo of our own onChange. `lastEmittedRef`
+  // tracks the value we last emitted; if the incoming controlled value differs
+  // from it, the change came from outside and the display must be re-synced.
   const externalValue = options.value;
   const prevExternalValueRef = useRef(externalValue);
-  if (prevExternalValueRef.current !== externalValue) {
+  // Object.is (not !==) so a controlled value of NaN compares equal to itself
+  // and never triggers an unconditional render-phase setState → infinite loop.
+  if (!Object.is(prevExternalValueRef.current, externalValue)) {
     prevExternalValueRef.current = externalValue;
-    if (externalValue != null) {
-      const formatted = formatter.format(externalValue);
-      if (formatted !== lastFormattedRef.current) {
+    if (!Object.is(externalValue, lastEmittedRef.current)) {
+      lastEmittedRef.current = externalValue;
+      // Normalise -0 so a controlled value of -0 displays as "0", matching the
+      // typed and commit paths.
+      const ev = Object.is(externalValue, -0) ? 0 : externalValue;
+      const finite = ev != null && Number.isFinite(ev);
+      const formatted = finite ? formatDisplay(ev as number) : "";
+      lastFormattedRef.current = formatted;
+      setInputValueRaw(formatted);
+      setRawValueState(finite ? String(ev) : null);
+    }
+  }
+
+  // ── Reformat the display when locale / formatOptions change at runtime ──────
+  // When the field is not being actively edited, a locale or format change must
+  // re-render the existing value in the new format (e.g. switching en-US → de-DE).
+  const formatKey = `${locale ?? ""}|${JSON.stringify(formatOptions ?? {})}|${prefix ?? ""}|${suffix ?? ""}|${effMinFrac ?? ""}|${effMaxFrac ?? ""}|${effFixedScale ?? ""}`;
+  const prevFormatKeyRef = useRef(formatKey);
+  if (prevFormatKeyRef.current !== formatKey) {
+    prevFormatKeyRef.current = formatKey;
+    if (numberValue != null && Number.isFinite(numberValue) && !isFocused) {
+      const formatted = formatDisplay(numberValue);
+      if (formatted !== inputValue) {
+        setInputValueRaw(formatted);
         lastFormattedRef.current = formatted;
       }
-    } else {
-      lastFormattedRef.current = "";
     }
   }
 
@@ -196,22 +247,26 @@ export function useNumberFieldState(options: UseNumberFieldStateOptions): Number
   );
 
   // ── setInputValue ──────────────────────────────────────────────────────────
+  // `knownValue` lets the caller supply the exact numeric value when `val` is a
+  // formatted string the parser cannot faithfully reverse (compact "2.5K",
+  // scientific, unit). Without it, the value is derived by parsing `val`.
   const setInputValue = useCallback(
-    (val: string) => {
-      const result = parser.parse(val);
+    (val: string, knownValue?: number | null) => {
+      const value = knownValue !== undefined ? knownValue : parser.parse(val).value;
 
       // Strict clamping: reject input that goes out of range (skipped when allowOutOfRange)
-      if (clampBehavior === "strict" && !allowOutOfRange && result.value !== null) {
-        if (minValue !== undefined && result.value < minValue) return;
-        if (maxValue !== undefined && result.value > maxValue) return;
+      if (clampBehavior === "strict" && !allowOutOfRange && value !== null) {
+        if (minValue !== undefined && value < minValue) return;
+        if (maxValue !== undefined && value > maxValue) return;
       }
 
       setInputValueRaw(val);
-      setNumberValue(result.value);
+      lastEmittedRef.current = value;
+      setNumberValue(value);
       // rawValue tracks what user typed, not the formatted output
-      setRawValueState(result.value !== null ? val : null);
-      onRawChange?.(result.value !== null ? val : null);
-      applyValidation(result.value);
+      setRawValueState(value !== null ? val : null);
+      onRawChange?.(value !== null ? val : null);
+      applyValidation(value);
     },
     [
       parser,
@@ -228,6 +283,7 @@ export function useNumberFieldState(options: UseNumberFieldStateOptions): Number
   // ── setNumberValue (external) ──────────────────────────────────────────────
   const setNumericValue = useCallback(
     (val: number | null) => {
+      lastEmittedRef.current = val;
       setNumberValue(val);
       if (val != null) {
         const formatted = formatDisplay(val);
@@ -260,25 +316,48 @@ export function useNumberFieldState(options: UseNumberFieldStateOptions): Number
     if (clampBehavior === "blur" && !allowOutOfRange) {
       clamped = clamp(numberValue, minValue, maxValue);
     }
+    // Normalise negative zero so "-0" commits as plain "0"
+    if (Object.is(clamped, -0)) clamped = 0;
 
     const formatted = formatDisplay(clamped);
     setInputValueRaw(formatted);
     lastFormattedRef.current = formatted;
 
-    if (clamped !== numberValue) {
-      setNumberValue(clamped);
+    // Round the committed value to the displayed precision so the numeric value
+    // never diverges from what is shown (e.g. a percent field that rounds the
+    // live-typed fraction down to its configured scale on blur). Only adopt the
+    // reparsed value when it round-trips exactly back to `formatted` — this skips
+    // non-invertible notations (compact "2.5K", scientific, unit) and any custom
+    // formatter whose output the parser cannot faithfully reverse.
+    let committed = clamped;
+    if (!customFormatValue) {
+      const reparsed = parser.parse(formatted).value;
+      if (reparsed !== null && Number.isFinite(reparsed) && formatDisplay(reparsed) === formatted) {
+        committed = reparsed;
+      }
     }
-    applyValidation(clamped);
+
+    if (committed !== numberValue) {
+      lastEmittedRef.current = committed;
+      setNumberValue(committed);
+    }
+    applyValidation(committed);
   }, [
     numberValue,
     clampBehavior,
     allowOutOfRange,
     minValue,
     maxValue,
-    formatter,
+    parser,
+    formatDisplay,
+    customFormatValue,
     setNumberValue,
     applyValidation,
   ]);
+
+  // Treat a non-finite value (NaN/Infinity from a bad default/controlled value)
+  // as empty so it never reaches ARIA, the hidden form input, or arithmetic.
+  const safeNumberValue = numberValue != null && Number.isFinite(numberValue) ? numberValue : null;
 
   // ── Step computation ───────────────────────────────────────────────────────
   const resolvedLargeStep = largeStep ?? step * 10;
@@ -289,33 +368,35 @@ export function useNumberFieldState(options: UseNumberFieldStateOptions): Number
     !options.readOnly &&
     (allowOutOfRange ||
       maxValue === undefined ||
-      (numberValue ?? Number.NEGATIVE_INFINITY) < maxValue);
+      (safeNumberValue ?? Number.NEGATIVE_INFINITY) < maxValue);
 
   const canDecrement =
     !options.disabled &&
     !options.readOnly &&
     (allowOutOfRange ||
       minValue === undefined ||
-      (numberValue ?? Number.POSITIVE_INFINITY) > minValue);
+      (safeNumberValue ?? Number.POSITIVE_INFINITY) > minValue);
 
   const increment = useCallback(
     (amount?: number) => {
       const s = amount ?? step;
-      const base = numberValue ?? 0;
-      const next = clamp(preciseAdd(base, s), minValue, maxValue);
+      const base = safeNumberValue ?? 0;
+      const raw = preciseAdd(base, s);
+      const next = allowOutOfRange ? raw : clamp(raw, minValue, maxValue);
       setNumericValue(next);
     },
-    [numberValue, step, minValue, maxValue, setNumericValue]
+    [safeNumberValue, step, minValue, maxValue, allowOutOfRange, setNumericValue]
   );
 
   const decrement = useCallback(
     (amount?: number) => {
       const s = amount ?? step;
-      const base = numberValue ?? 0;
-      const next = clamp(preciseAdd(base, -s), minValue, maxValue);
+      const base = safeNumberValue ?? 0;
+      const raw = preciseAdd(base, -s);
+      const next = allowOutOfRange ? raw : clamp(raw, minValue, maxValue);
       setNumericValue(next);
     },
-    [numberValue, step, minValue, maxValue, setNumericValue]
+    [safeNumberValue, step, minValue, maxValue, allowOutOfRange, setNumericValue]
   );
 
   const incrementToMax = useCallback(() => {
@@ -328,7 +409,7 @@ export function useNumberFieldState(options: UseNumberFieldStateOptions): Number
 
   return {
     inputValue,
-    numberValue: numberValue ?? null,
+    numberValue: safeNumberValue,
     rawValue,
     canIncrement,
     canDecrement,

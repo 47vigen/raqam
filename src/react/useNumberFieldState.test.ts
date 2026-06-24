@@ -52,7 +52,8 @@ describe("useNumberFieldState", () => {
       );
       act(() => result.current.setInputValue("1."));
       expect(result.current.inputValue).toBe("1.");
-      expect(result.current.numberValue).toBeNull();
+      // Display preserved, but value already resolves to 1 (never wiped on blur).
+      expect(result.current.numberValue).toBe(1);
     });
 
     it("fires onChange when value changes", () => {
@@ -204,8 +205,8 @@ describe("useNumberFieldState", () => {
       act(() => result.current.setInputValue("1."));
       expect(result.current.inputValue).toBe("1.");
       act(() => result.current.commit());
-      // After commit, intermediate state is cleaned up
-      expect(result.current.inputValue).toBe("");
+      // Commit resolves the trailing-decimal value to "1" instead of wiping it.
+      expect(result.current.inputValue).toBe("1");
     });
 
     it("clamps to maxValue on blur when clampBehavior='blur'", () => {

@@ -26,9 +26,19 @@ function extractLocaleInfo(
   locale: string | undefined,
   options: Intl.NumberFormatOptions | undefined
 ): LocaleInfo {
-  const fmt = getFormatter(locale, options);
-  // Use a simple decimal number — we only need the separators
-  const parts = fmt.formatToParts(PROBE_VALUE);
+  const styledFmt = getFormatter(locale, options);
+
+  // Probe the separators with a NEUTRAL decimal formatter (same locale +
+  // numbering system, but plain decimal style with a forced fraction). The
+  // styled formatter can hide them — e.g. percent scales the probe so it has no
+  // fraction (decimal separator invisible) and a positive value never yields a
+  // minusSign. A negative, fractional decimal probe always surfaces all four.
+  const probeFmt = getFormatter(locale, {
+    minimumFractionDigits: 1,
+    maximumFractionDigits: 1,
+    numberingSystem: options?.numberingSystem,
+  });
+  const parts = probeFmt.formatToParts(-PROBE_VALUE);
 
   let decimalSeparator = ".";
   let groupingSeparator = ",";
@@ -42,8 +52,7 @@ function extractLocaleInfo(
   }
 
   // Detect locale zero digit
-  const zeroParts = fmt.formatToParts(0);
-  for (const part of zeroParts) {
+  for (const part of probeFmt.formatToParts(0)) {
     if (part.type === "integer") {
       zero = part.value;
       break;
@@ -52,7 +61,7 @@ function extractLocaleInfo(
 
   // RTL locales: Arabic / Hebrew / Persian / Urdu / Syriac etc.
   const rtlLocales = /^(ar|he|fa|ur|syc|nqo|ug|yi)/i;
-  const resolvedLocale = fmt.resolvedOptions().locale;
+  const resolvedLocale = styledFmt.resolvedOptions().locale;
   const isRTL = rtlLocales.test(resolvedLocale);
 
   return { decimalSeparator, groupingSeparator, minusSign, zero, isRTL };

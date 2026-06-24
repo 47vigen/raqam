@@ -71,9 +71,10 @@ describe("Typing decimals", () => {
     renderField();
     await user.click(getInput());
     await user.type(getInput(), "23.");
+    // Display is preserved as typed (not reformatted)…
     expect(getInput().value).toBe("23.");
-    // No valuenow yet — intermediate state
-    expect(getInput()).not.toHaveAttribute("aria-valuenow");
+    // …but the value already resolves to 23 so nothing is lost on blur.
+    expect(getInput()).toHaveAttribute("aria-valuenow", "23");
   });
 
   it("completes decimal after intermediate", async () => {
@@ -85,14 +86,14 @@ describe("Typing decimals", () => {
     expect(getInput()).toHaveAttribute("aria-valuenow", "23.58");
   });
 
-  it("blur on intermediate '23.' clears the field (numberValue is null)", async () => {
+  it("blur on intermediate '23.' commits the integer part (no data loss)", async () => {
     const user = userEvent.setup();
     renderField();
     await user.click(getInput());
     await user.type(getInput(), "23.");
-    await user.tab(); // trigger blur — intermediate with null numberValue → cleared
-    expect(getInput().value).toBe("");
-    expect(getInput()).not.toHaveAttribute("aria-valuenow");
+    await user.tab(); // blur — trailing dot resolves to the integer, never wiped
+    expect(getInput().value).toBe("23");
+    expect(getInput()).toHaveAttribute("aria-valuenow", "23");
   });
 
   it("replaces existing value with decimal", async () => {
@@ -149,8 +150,9 @@ describe("Typing negative numbers", () => {
     renderField({ allowNegative: false });
     await user.click(getInput());
     await user.type(getInput(), "-5");
-    expect(getInput()).not.toHaveAttribute("aria-valuenow");
-    // The input should not contain a negative value
+    // The minus is dropped live — the field shows the digits, no negative value.
+    expect(getInput().value).toBe("5");
+    expect(getInput()).toHaveAttribute("aria-valuenow", "5");
     const value = Number(getInput().getAttribute("aria-valuenow"));
     expect(value).not.toBeLessThan(0);
   });

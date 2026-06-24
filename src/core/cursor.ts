@@ -14,6 +14,9 @@ function isAccepted(ch: string, info: LocaleInfo): boolean {
   if (ch >= "0" && ch <= "9") return true;
   if (ch === info.decimalSeparator) return true;
   if (ch === info.minusSign || ch === "-") return true;
+  // ASCII "." stands in for the decimal point in locales whose separator is
+  // non-ASCII (ar/fa: ٫) — but not when "." is the grouping separator (de-DE).
+  if (ch === "." && info.decimalSeparator !== "." && info.groupingSeparator !== ".") return true;
   return false;
 }
 
@@ -94,6 +97,17 @@ export function computeNewCursorPosition(
 
   // Stage 1: count accepted chars before cursor in old input
   let acceptedCount = countAcceptedBefore(normalised, oldCursor, info);
+
+  // Stage 1b: accounting/parens negatives drop the minus sign. If a minus was
+  // counted before the caret but the reformatted output represents the sign
+  // without one (e.g. "($1.00)"), the accepted-char counts are off by one —
+  // correct for it so integer digits don't land inside the fraction.
+  const before = oldInput.slice(0, oldCursor);
+  const minusBeforeCaret = before.includes("-") || before.includes(info.minusSign);
+  const newHasMinus = newFormatted.includes("-") || newFormatted.includes(info.minusSign);
+  if (minusBeforeCaret && !newHasMinus) {
+    acceptedCount = Math.max(0, acceptedCount - 1);
+  }
 
   // Stage 2: backspace on grouping separator — also delete the preceding digit
   if (
