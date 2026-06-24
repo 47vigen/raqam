@@ -527,7 +527,8 @@ export function useNumberField(
       e.preventDefault();
       const text = String(state.numberValue ?? "");
       e.clipboardData.setData("text/plain", text);
-      // Clear the field after cut
+      // Clear the field after cut — report the dedicated "clear" reason.
+      state._setLastChangeReason("clear");
       state.setInputValue("");
     },
     [copyBehavior, state]
@@ -605,8 +606,10 @@ export function useNumberField(
                 liveFormatter.format(parseResult.value);
               state.setInputValue(nextDisplay, parseResult.value);
             } else {
-              // Empty or intermediate — store as-is (blur will clean up)
+              // Empty or intermediate — store as-is (blur will clean up). If the
+              // edit emptied the field, report the dedicated "clear" reason.
               nextDisplay = rawEdited;
+              if (rawEdited === "") state._setLastChangeReason("clear");
               state.setInputValue(rawEdited);
             }
             // Remap the caret through the cursor engine so re-grouping shifts
@@ -658,7 +661,9 @@ export function useNumberField(
                 state.setInputValue(nextDisplay, parseResult.value);
               } else {
                 // No digits left — clear the field (don't strand the affordance).
+                // Report the dedicated "clear" reason like the onChange path.
                 nextDisplay = "";
+                state._setLastChangeReason("clear");
                 state.setInputValue("");
               }
               pendingCursor.current = computeNewCursorPosition(

@@ -291,6 +291,33 @@ describe("NumberField clear reason", () => {
     expect(value).toBeNull();
     expect(details.reason).toBe("clear");
   });
+
+  it("reports reason 'clear' when backspacing the last digit before an affordance", async () => {
+    const user = userEvent.setup();
+    const onValueChange = vi.fn();
+    render(
+      <NumberField.Root
+        locale="en-US"
+        formatOptions={{ style: "percent" }}
+        defaultValue={0.05}
+        onValueChange={onValueChange}
+      >
+        <NumberField.Input data-testid="input" />
+      </NumberField.Root>
+    );
+    const input = screen.getByTestId("input") as HTMLInputElement;
+    // Displays "5%"; Backspace from the end is handled by the smart-affordance
+    // keydown branch (not the onChange path) and empties the field.
+    await user.click(input);
+    input.setSelectionRange(input.value.length, input.value.length);
+    await user.keyboard("{Backspace}");
+
+    expect(onValueChange).toHaveBeenCalled();
+    const calls = onValueChange.mock.calls;
+    const [value, details] = calls[calls.length - 1] as [number | null, { reason: string }];
+    expect(value).toBeNull();
+    expect(details.reason).toBe("clear");
+  });
 });
 
 describe("NumberField render prop", () => {
