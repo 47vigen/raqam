@@ -41,6 +41,29 @@ function renderWith(
   );
 }
 
+// ── Accessible-name merge helper ──────────────────────────────────────────────
+
+/**
+ * When a consumer names an element directly via `aria-label` (and doesn't pass
+ * their own `aria-labelledby`), drop the hook's fallback `aria-labelledby`. The
+ * fallback points at a `<label>` the consumer may never render, and since
+ * `aria-labelledby` wins over `aria-label`, leaving it in place produces a
+ * dangling reference that also clobbers the consumer's `aria-label`.
+ *
+ * This complements the same guard inside `useNumberField`: that handles props
+ * passed to the hook, while this handles props spread onto `<NumberField.Input>`
+ * / `<NumberField.Group>` after `aria.*Props` (the component API).
+ */
+function mergeAriaName<T extends { "aria-labelledby"?: string }>(
+  ariaProps: T,
+  rest: { "aria-label"?: unknown; "aria-labelledby"?: unknown }
+): T {
+  if (rest["aria-label"] !== undefined && rest["aria-labelledby"] === undefined) {
+    return { ...ariaProps, "aria-labelledby": undefined };
+  }
+  return ariaProps;
+}
+
 // ── Data attributes helper ────────────────────────────────────────────────────
 
 function stateDataAttrs(
@@ -182,7 +205,7 @@ const Group = forwardRef<HTMLDivElement, GroupProps>(function NumberFieldGroup(
 ) {
   const { aria, state } = useNumberFieldContext();
   const el = (
-    <div ref={ref} {...aria.groupProps} {...rest}>
+    <div ref={ref} {...mergeAriaName(aria.groupProps, rest)} {...rest}>
       {children}
     </div>
   );
@@ -201,7 +224,11 @@ const Input = forwardRef<HTMLInputElement, InputProps>(function NumberFieldInput
 ) {
   const { aria, state, inputRef } = useNumberFieldContext();
   const el = (
-    <input ref={inputRef as React.RefObject<HTMLInputElement>} {...aria.inputProps} {...rest} />
+    <input
+      ref={inputRef as React.RefObject<HTMLInputElement>}
+      {...mergeAriaName(aria.inputProps, rest)}
+      {...rest}
+    />
   );
   return renderWith(el, render, state);
 });

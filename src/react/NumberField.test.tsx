@@ -76,6 +76,34 @@ describe("NumberField ARIA attributes", () => {
     renderField({ required: true });
     expect(screen.getByRole("spinbutton")).toHaveAttribute("aria-required");
   });
+
+  it("does not leave a dangling aria-labelledby when aria-label is on the Input and no Label is rendered", () => {
+    render(
+      <NumberField.Root locale="en-US">
+        <NumberField.Group>
+          <NumberField.Input data-testid="input" aria-label="Amount" />
+        </NumberField.Group>
+      </NumberField.Root>
+    );
+    const input = screen.getByTestId("input");
+    expect(input).toHaveAttribute("aria-label", "Amount");
+    expect(input).not.toHaveAttribute("aria-labelledby");
+  });
+
+  it("respects an explicit aria-labelledby spread onto the Input", () => {
+    render(
+      <NumberField.Root locale="en-US">
+        <span id="external-label">Amount</span>
+        <NumberField.Group>
+          <NumberField.Input data-testid="input" aria-labelledby="external-label" />
+        </NumberField.Group>
+      </NumberField.Root>
+    );
+    expect(screen.getByTestId("input")).toHaveAttribute(
+      "aria-labelledby",
+      "external-label"
+    );
+  });
 });
 
 describe("NumberField input type", () => {
