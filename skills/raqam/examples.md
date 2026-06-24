@@ -75,19 +75,20 @@ import { NumberField } from "raqam";
 
 ```tsx
 import { useRef } from "react";
-import { useNumberFieldState, useNumberField } from "raqam";
+import { useNumberFieldState, useNumberField, type UseNumberFieldStateOptions } from "raqam";
 
 function PriceInput() {
   const inputRef = useRef<HTMLInputElement>(null);
 
   // Share one options object — useNumberField builds its own formatter/parser
-  // and needs the SAME formatting options as the state hook.
+  // and needs the SAME formatting options as the state hook. `satisfies` keeps
+  // the literal types (e.g. style: "currency") in a strict TS project.
   const options = {
     locale: "en-US",
     formatOptions: { style: "currency", currency: "USD" },
     minValue: 0,
     defaultValue: 1234.56,
-  };
+  } satisfies UseNumberFieldStateOptions;
 
   const state = useNumberFieldState(options);
   const { inputProps, labelProps, incrementButtonProps, decrementButtonProps } =
