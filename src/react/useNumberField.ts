@@ -76,6 +76,7 @@ export function useNumberField(
     stepHoldInterval = 200,
     formatValue: customFormatValue,
     parseValue: customParseValue,
+    onValueCommitted,
   } = props; // formatValue/parseValue are on UseNumberFieldStateOptions (inherited)
 
   // Compact/scientific/engineering notation produce formatted strings ("2.5K",
@@ -409,7 +410,9 @@ export function useNumberField(
         pendingCursor.current = cursorPos;
       }
 
-      state._setLastChangeReason("input");
+      // An edit that empties the field reports the dedicated "clear" reason so
+      // consumers can distinguish a deletion-to-empty from ordinary typing.
+      state._setLastChangeReason(displayValue === "" ? "clear" : "input");
       state.setInputValue(displayValue, knownValue);
     },
     [
@@ -719,7 +722,8 @@ export function useNumberField(
 
       if (key === "Enter") {
         state._setLastChangeReason("blur");
-        state.commit();
+        const committed = state.commit();
+        onValueCommitted?.(committed, { reason: "keyboard" });
         return;
       }
     },
@@ -737,6 +741,7 @@ export function useNumberField(
       inputRef,
       allowDecimal,
       formatGroupedFraction,
+      onValueCommitted,
     ]
   );
 
@@ -745,10 +750,11 @@ export function useNumberField(
     (e: React.FocusEvent<HTMLInputElement>) => {
       state.setIsFocused(false);
       state._setLastChangeReason("blur");
-      state.commit();
+      const committed = state.commit();
+      onValueCommitted?.(committed, { reason: "blur" });
       onBlur?.(e);
     },
-    [state, onBlur]
+    [state, onBlur, onValueCommitted]
   );
 
   // ── Focus handler ────────────────────────────────────────────────────────

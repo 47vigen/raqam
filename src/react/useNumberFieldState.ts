@@ -304,11 +304,11 @@ export function useNumberFieldState(options: UseNumberFieldStateOptions): Number
   );
 
   // ── commit (called on blur) ────────────────────────────────────────────────
-  const commit = useCallback(() => {
+  const commit = useCallback((): number | null => {
     if (numberValue == null) {
       setInputValueRaw("");
       lastFormattedRef.current = "";
-      return;
+      return null;
     }
 
     let clamped = numberValue;
@@ -342,6 +342,7 @@ export function useNumberFieldState(options: UseNumberFieldStateOptions): Number
       setNumberValue(committed);
     }
     applyValidation(committed);
+    return committed;
   }, [
     numberValue,
     clampBehavior,

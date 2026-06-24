@@ -225,6 +225,74 @@ describe("NumberField blur behavior", () => {
   });
 });
 
+describe("NumberField onValueCommitted", () => {
+  it("fires on blur with reason 'blur' and the clamped value", async () => {
+    const user = userEvent.setup();
+    const onValueCommitted = vi.fn();
+    render(
+      <NumberField.Root
+        locale="en-US"
+        defaultValue={5}
+        maxValue={10}
+        onValueCommitted={onValueCommitted}
+      >
+        <NumberField.Input data-testid="input" />
+      </NumberField.Root>
+    );
+    const input = screen.getByTestId("input");
+    await user.click(input);
+    await user.keyboard("99"); // 599 — clamps to maxValue on blur
+    await user.tab();
+
+    expect(onValueCommitted).toHaveBeenCalled();
+    const committedCalls = onValueCommitted.mock.calls;
+    const [value, details] = committedCalls[committedCalls.length - 1] as [
+      number | null,
+      { reason: string },
+    ];
+    expect(details.reason).toBe("blur");
+    expect(value).toBe(10);
+  });
+
+  it("fires on Enter with reason 'keyboard'", async () => {
+    const user = userEvent.setup();
+    const onValueCommitted = vi.fn();
+    render(
+      <NumberField.Root locale="en-US" defaultValue={3} onValueCommitted={onValueCommitted}>
+        <NumberField.Input data-testid="input" />
+      </NumberField.Root>
+    );
+    const input = screen.getByTestId("input");
+    await user.click(input);
+    await user.keyboard("{Enter}");
+
+    expect(onValueCommitted).toHaveBeenCalledWith(3, { reason: "keyboard" });
+  });
+});
+
+describe("NumberField clear reason", () => {
+  it("reports reason 'clear' when the field is emptied", async () => {
+    const user = userEvent.setup();
+    const onValueChange = vi.fn();
+    render(
+      <NumberField.Root locale="en-US" defaultValue={42} onValueChange={onValueChange}>
+        <NumberField.Input data-testid="input" />
+      </NumberField.Root>
+    );
+    const input = screen.getByTestId("input");
+    await user.clear(input);
+
+    expect(onValueChange).toHaveBeenCalled();
+    const changeCalls = onValueChange.mock.calls;
+    const [value, details] = changeCalls[changeCalls.length - 1] as [
+      number | null,
+      { reason: string },
+    ];
+    expect(value).toBeNull();
+    expect(details.reason).toBe("clear");
+  });
+});
+
 describe("NumberField render prop", () => {
   it("renders custom element via render prop (element form)", () => {
     render(
