@@ -806,6 +806,12 @@ export function useNumberField(
 
   // ── Prop maps ────────────────────────────────────────────────────────────
 
+  // Only fall back to the internal label id when the consumer hasn't supplied
+  // their own accessible name. Defaulting to `labelId` unconditionally points
+  // `aria-labelledby` at a `<label>` the consumer may never render (e.g. when
+  // they pass `aria-label` instead), producing a dangling reference.
+  const ariaLabelledBy = props["aria-labelledby"] ?? (props["aria-label"] ? undefined : labelId);
+
   const labelProps: React.LabelHTMLAttributes<HTMLLabelElement> = {
     id: labelId,
     htmlFor: inputId,
@@ -813,7 +819,7 @@ export function useNumberField(
 
   const groupProps: React.HTMLAttributes<HTMLDivElement> = {
     role: "group",
-    "aria-labelledby": props["aria-labelledby"] ?? labelId,
+    "aria-labelledby": ariaLabelledBy,
   };
 
   const inputProps: React.InputHTMLAttributes<HTMLInputElement> = {
@@ -825,7 +831,7 @@ export function useNumberField(
     autoCorrect: "off",
     spellCheck: false,
     "aria-label": props["aria-label"],
-    "aria-labelledby": props["aria-labelledby"] ?? labelId,
+    "aria-labelledby": ariaLabelledBy,
     "aria-describedby": props["aria-describedby"],
     "aria-valuenow": state.numberValue ?? undefined,
     "aria-valuemin": minValue,
