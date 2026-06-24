@@ -40,7 +40,10 @@ Only `Root` and `Input` are required. All others are optional.
 
 ## `NumberField.Root`
 
-Context provider. Accepts all `UseNumberFieldStateOptions` props plus:
+Context provider. Accepts **every** [`useNumberFieldState`](/api/use-number-field-state)
+and [`useNumberField`](/api/use-number-field) option (`step`, `formatOptions`,
+`validate`, `copyBehavior`, `stepHoldDelay`, `label`, `aria-*`, …) — the most
+common ones plus the Root-only props are:
 
 | Prop | Type | Description |
 |------|------|-------------|
@@ -49,9 +52,10 @@ Context provider. Accepts all `UseNumberFieldStateOptions` props plus:
 | `value` / `defaultValue` | `number \| null` | Controlled/uncontrolled value. |
 | `onChange` | `(v: number \| null) => void` | Called whenever the parsed numeric value changes. |
 | `onValueChange` | `(v, details) => void` | Like `onChange`, plus `{ reason, formattedValue }`. |
+| `onValueCommitted` | `(v, details) => void` | Fires only on commit, with `{ reason: "blur" \| "keyboard" }`. |
 | `minValue` / `maxValue` | `number` | Constraints. |
 | `step` / `largeStep` / `smallStep` | `number` | Step sizes. |
-| `validate` | `(v: number \| null) => boolean \| string` | Custom validator. |
+| `validate` | `(v: number \| null) => boolean \| string \| null` | Custom validator. |
 | `disabled` / `readOnly` | `boolean` | Interaction state. |
 | `required` | `boolean` | Marks the field as required. |
 | `allowNegative` / `allowDecimal` | `boolean` | Input constraints. |
@@ -60,6 +64,7 @@ Context provider. Accepts all `UseNumberFieldStateOptions` props plus:
 | `allowMouseWheel` | `boolean` | Enable wheel-based increment/decrement. |
 | `copyBehavior` | `"formatted" \| "raw" \| "number"` | Clipboard behaviour. |
 | `allowOutOfRange` | `boolean` | Skip clamping; show `aria-invalid` instead. |
+| `className` / `style` | `string` / `CSSProperties` | Applied to the root wrapper `<div>`. |
 
 Data attributes set on the root element:
 
@@ -84,7 +89,7 @@ The text input. Accepts all standard `<input>` props except `type` (always `"tex
 
 | Prop | Type | Description |
 |------|------|-------------|
-| `render` | `RenderProp<"input">` | Swap the element (e.g. a styled component). |
+| `render` | `RenderProp` | Swap the element (e.g. a styled component). |
 
 ---
 
@@ -173,12 +178,16 @@ read-only text. Useful for dual-display UIs (edit + display side by side).
 
 ## `NumberField.Description`
 
-Helper text. Automatically wired to `aria-describedby` on the input.
+Renders helper text as a `<p>`. To expose it to screen readers, give your help
+element an `id` and pass it as `aria-describedby` on `<NumberField.Input>` —
+raqam does not link `Description` to the input automatically yet. See
+[Accessibility](/guides/accessibility#associating-help-text).
 
 ```tsx
-<NumberField.Description>
-  Enter a value between 0 and 100.
-</NumberField.Description>
+<NumberField.Root locale="en-US">
+  <NumberField.Input aria-describedby="qty-help" />
+  <p id="qty-help">Enter a value between 0 and 100.</p>
+</NumberField.Root>
 ```
 
 ---

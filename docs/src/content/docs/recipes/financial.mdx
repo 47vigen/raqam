@@ -62,10 +62,14 @@ function CryptoInput() {
       locale="en-US"
       defaultValue={0}
       formatValue={(v) => v.toFixed(8)}
-      parseValue={(s) => ({
-        value: parseFloat(s),
-        isIntermediate: s.endsWith(".") || /\.\d*0+$/.test(s),
-      })}
+      parseValue={(s) => {
+        const n = parseFloat(s);
+        return {
+          // Return null (not NaN) for empty/unparseable input
+          value: s === "" || Number.isNaN(n) ? null : n,
+          isIntermediate: s.endsWith(".") || /\.\d*0+$/.test(s),
+        };
+      }}
       onRawChange={setRaw}
     >
       <NumberField.Label>BTC amount</NumberField.Label>
@@ -157,7 +161,7 @@ Know exactly how the user changed the value — useful for analytics:
   defaultValue={0}
   onValueChange={(value, { reason, formattedValue }) => {
     analytics.track("number_changed", { value, reason, formattedValue });
-    // reason: "keyboard" | "wheel" | "paste" | "blur" | "increment" | "decrement" | "scrub"
+    // reason: "input" | "clear" | "blur" | "paste" | "keyboard" | "increment" | "decrement" | "wheel" | "scrub"
   }}
 >
   <NumberField.Input />

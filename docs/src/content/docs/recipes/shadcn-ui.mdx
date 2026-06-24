@@ -20,10 +20,11 @@ Create a reusable `RaqamInput` component that follows the shadcn design language
 import * as React from "react";
 import { NumberField } from "raqam";
 import { cn } from "@/lib/utils";
-import type { UseNumberFieldStateOptions } from "raqam";
+import type { UseNumberFieldProps } from "raqam";
 
-interface RaqamInputProps extends UseNumberFieldStateOptions {
-  label?: string;
+// UseNumberFieldProps includes every state option plus behavior props
+// (label, name, aria-*, copyBehavior, …), so name/aria pass-through type-checks.
+interface RaqamInputProps extends UseNumberFieldProps {
   description?: string;
   className?: string;
 }

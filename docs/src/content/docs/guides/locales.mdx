@@ -64,12 +64,14 @@ the plugin, `۱۲۳` is accepted and internally treated as `123`.
 import "raqam/locales";   // imports fa, ar, hi, bn, th
 ```
 
-Each plugin is only ~100 bytes gzipped.
+Each plugin is tiny — well under 200 B (e.g. `raqam/locales/fa` is 189 B, min +
+brotli), enforced in CI via `.size-limit.json`.
 
 ### Locale metadata exports
 
-If you want to build locale pickers or feature flags, the bundle entrypoint also
-re-exports the supported locale lists:
+If you want to build locale pickers or feature flags, the `raqam/locales`
+entrypoint also re-exports the supported locale lists (the main `raqam` entry
+does not):
 
 ```ts
 import {
@@ -94,7 +96,8 @@ en-US:  10,000,000  (millions)
 hi-IN:  1,00,00,000 (crores)
 ```
 
-raqam handles this automatically via `Intl.NumberFormat`.
+raqam handles this automatically via `Intl.NumberFormat`. Native digit input for
+Marathi (`mr`) and Nepali (`ne`) ships in the `raqam/locales/hi` plugin.
 
 ## RTL locales
 

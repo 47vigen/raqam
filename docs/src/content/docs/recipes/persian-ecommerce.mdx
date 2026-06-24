@@ -36,7 +36,7 @@ export function TomanInput() {
       <NumberField.Label>قیمت</NumberField.Label>  {/* "Price" */}
       <NumberField.Group>
         <NumberField.Decrement>−</NumberField.Decrement>
-        <NumberField.Input dir="ltr" />  {/* raqam sets dir="ltr" internally */}
+        <NumberField.Input />  {/* raqam applies direction: ltr automatically for RTL locales */}
         <NumberField.Increment>+</NumberField.Increment>
       </NumberField.Group>
     </NumberField.Root>
@@ -73,9 +73,13 @@ export function ProductPriceEditor() {
         <NumberField.Label style={{ display: "block", marginBottom: 4 }}>
           قیمت محصول
         </NumberField.Label>
-        <NumberField.Group style={{ display: "flex", direction: "ltr" }}>
+        <NumberField.Group style={{ display: "flex" }}>
           <NumberField.Decrement>−</NumberField.Decrement>
-          <NumberField.Input style={{ flex: 1, textAlign: "right", padding: "6px 10px" }} />
+          {/* An inline `style` replaces raqam's RTL style object, so re-declare
+              direction: ltr here (or style the input with className instead). */}
+          <NumberField.Input
+            style={{ flex: 1, padding: "6px 10px", direction: "ltr", textAlign: "right" }}
+          />
           <NumberField.Increment>+</NumberField.Increment>
         </NumberField.Group>
         <NumberField.ErrorMessage style={{ color: "red", fontSize: 12 }} />
@@ -101,7 +105,7 @@ Persian digit normalization is transparent:
 
 ## IRR currency format
 
-If you want the `ریال` symbol from `Intl.NumberFormat`:
+If you want the official rial currency symbol from `Intl.NumberFormat`:
 
 ```tsx
 <NumberField.Root
@@ -111,7 +115,9 @@ If you want the `ریال` symbol from `Intl.NumberFormat`:
 >
   <NumberField.Input />
 </NumberField.Root>
-// Displays: ۰٫۰۰ ﷼
+// Displays something like: ۰ ﷼
+// The exact symbol (﷼ vs ریال) and number of fraction digits come from the
+// runtime's ICU data, so output can vary across environments.
 ```
 
 ## Validation for price ranges

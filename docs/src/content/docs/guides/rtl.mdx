@@ -53,6 +53,12 @@ input[data-rtl] {
 }
 ```
 
+<Aside type="note">
+  `data-rtl` is set on the **input** element, not on `NumberField.Root`. Tailwind
+  patterns that key off the root (`group-data-[rtl]`) won't see it — target the
+  input directly (`data-[rtl]:` on `<NumberField.Input>`).
+</Aside>
+
 ## Persian example
 
 ```tsx
@@ -117,4 +123,4 @@ container with `dir="rtl"`:
 All keyboard shortcuts work correctly in RTL mode:
 - ↑/↓ increment/decrement
 - Backspace over grouping separators (e.g. `٬`) skips them correctly
-- Home/End jump to `minValue`/`maxValue`
+- Home/End jump to `minValue`/`maxValue` (when those are set)

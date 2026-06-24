@@ -7,6 +7,11 @@ description: Lightweight display-only formatting hook — no input state machine
 It has zero state machine overhead — ideal for price tables, dashboards, or any
 read-only numeric display.
 
+This is a client hook (it ships with the `"use client"` directive). In React
+Server Components, Edge functions, or any non-React code, use `createFormatter`
+from `raqam/server` instead — see [Core utilities](/api/core-utilities) and the
+server-side example below.
+
 ## Import
 
 ```ts
@@ -19,8 +24,8 @@ import { useNumberFieldFormat } from "raqam/react";
 
 ```ts
 function useNumberFieldFormat(
-  value: number | null | undefined,
-  options: {
+  value: number | null,
+  options?: {
     locale?: string;
     formatOptions?: Intl.NumberFormatOptions;
     prefix?: string;
@@ -36,7 +41,7 @@ function useNumberFieldFormat(
 
 | Param | Type | Description |
 |-------|------|-------------|
-| `value` | `number \| null \| undefined` | The value to format. Returns `""` for null/undefined. |
+| `value` | `number \| null` | The value to format. Returns `""` for `null` or non-finite values. |
 | `options.locale` | `string` | BCP 47 locale. Defaults to the current runtime locale. |
 | `options.formatOptions` | `Intl.NumberFormatOptions` | Passed to `Intl.NumberFormat`. |
 | `options.prefix` / `options.suffix` | `string` | Add custom affixes around the formatted value. |
@@ -45,7 +50,7 @@ function useNumberFieldFormat(
 
 ## Return value
 
-A formatted string, or `""` when `value` is null/undefined/NaN.
+A formatted string, or `""` when `value` is `null` or non-finite (`NaN`, `Infinity`).
 
 ## Example — price table
 

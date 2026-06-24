@@ -42,6 +42,12 @@ src/
 └── stories/        # Storybook stories
 ```
 
+For the **design rationale** behind this architecture — why input is always
+`type="text"`, how the cursor-preservation algorithm works, the i18n/RTL
+strategy, and the full set of ADRs — see [`DEFINITION.md`](DEFINITION.md) (the
+original design spec). For the user-facing API, see [`README.md`](README.md) and
+the [docs site](https://47vigen.github.io/raqam/).
+
 ## Testing
 
 All code must have tests. Run:
@@ -58,17 +64,31 @@ pnpm test:coverage   # with coverage report
 
 ## Adding a locale plugin
 
-Locale plugins live in `src/locales/`. Each plugin registers digit blocks via `registerLocale()`:
+Locale plugins live in `src/locales/`. Each plugin is a side-effecting module
+that registers one or more digit blocks via `registerLocale()` and exports the
+BCP 47 tags it covers:
 
 ```ts
 // src/locales/my-locale.ts
 import { registerLocale } from '../core/normalizer.js'
 
-// Register digit codepoint range [start, end] inclusive
-registerLocale({ digits: [0xXXX0, 0xXXX9] })
+// digitBlocks is an array of [start, end] codepoint ranges (inclusive)
+registerLocale({ digitBlocks: [[0xXXX0, 0xXXX9]] })
+
+/** BCP 47 locale tags this plugin covers. */
+export const LOCALE_CODES = ['xx', 'xx-YY'] as const
 ```
 
-Add a corresponding test verifying digit normalization round-trips.
+Then re-export it from `src/locales/index.ts` (aliasing the codes) so
+`import 'raqam/locales'` registers everything:
+
+```ts
+export { LOCALE_CODES as XX_LOCALE_CODES } from './my-locale.js'
+```
+
+Add a corresponding test verifying digit normalization round-trips, and a
+`tsup` entry in `tsup.config.ts` if the plugin should ship as its own subpath
+(`raqam/locales/xx`).
 
 ## Commit style
 

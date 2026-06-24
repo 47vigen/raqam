@@ -1,5 +1,5 @@
 /** Keep in sync with published `raqam` when releasing. */
-export const RAQAM_VERSION = "0.2.2";
+export const RAQAM_VERSION = "0.2.4";
 
 export type PlaygroundTemplateId = "starter" | "currency" | "persian";
 
@@ -71,7 +71,7 @@ export default function App(): JSX.Element {
         <NumberField.Group style={{ display: "flex", alignItems: "center", border: "1px solid #ccc", borderRadius: 8, overflow: "hidden" }}>
           <NumberField.Decrement style={{ padding: "8px 12px", border: "none", background: "#f5f5f5", cursor: "pointer" }}>−</NumberField.Decrement>
           <NumberField.Input
-            style={{ flex: 1, padding: "8px 10px", border: "none", outline: "none", minWidth: 80, direction: "rtl" }}
+            style={{ flex: 1, padding: "8px 10px", border: "none", outline: "none", minWidth: 80 }}
           />
           <NumberField.Increment style={{ padding: "8px 12px", border: "none", background: "#f5f5f5", cursor: "pointer" }}>+</NumberField.Increment>
         </NumberField.Group>

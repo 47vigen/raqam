@@ -108,7 +108,7 @@ export function PriceForm() {
         onBlur={() => formik.setFieldTouched("price")}
       >
         <NumberField.Label>Price</NumberField.Label>
-        <NumberField.Input name="price" />
+        <NumberField.Input />
         {formik.touched.price && formik.errors.price && (
           <p style={{ color: "red", fontSize: 12 }}>{formik.errors.price}</p>
         )}
