@@ -44,4 +44,8 @@ jobs:
           commit: "chore: release raqam"
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          # changesets/action looks for NPM_TOKEN; without it (and with id-token: write)
+          # it falls back to OIDC trusted publishing, which isn't configured for this
+          # package and fails with E404. Provide both so token auth is used.
+          NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
