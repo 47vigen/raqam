@@ -11,7 +11,14 @@ export default defineConfig({
     coverage: {
       reporter: ["text", "json", "html"],
       include: ["src/**/*.{ts,tsx}"],
-      exclude: ["src/**/*.test.{ts,tsx}", "src/test-setup.ts"],
+      exclude: [
+        "src/**/*.test.{ts,tsx}",
+        "src/test-setup.ts",
+        "src/test-utils.tsx", // shared test harness, not shippable source
+        "src/stories/**", // Storybook demos
+        "src/**/index.ts", // re-export barrels
+        "src/core/types.ts", // type-only declarations
+      ],
     },
   },
 });
