@@ -2,6 +2,18 @@ import { describe, it, expect, vi } from "vitest";
 import { render, screen, fireEvent } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { NumberField } from "./NumberField.js";
+import { useNumberFieldContext } from "./context.js";
+
+// A label built from the exported primitives instead of <NumberField.Label> —
+// it must still register (via labelProps' ref) so the group/input stay wired.
+function CustomLabel({ children }: { children: React.ReactNode }) {
+  const { aria } = useNumberFieldContext();
+  return (
+    <label data-testid="custom-label" {...aria.labelProps}>
+      {children}
+    </label>
+  );
+}
 
 // Helper that renders a standard NumberField
 function renderField(props: Parameters<typeof NumberField.Root>[0] = {}) {
@@ -75,6 +87,175 @@ describe("NumberField ARIA attributes", () => {
   it("sets aria-required when required", () => {
     renderField({ required: true });
     expect(screen.getByRole("spinbutton")).toHaveAttribute("aria-required");
+  });
+
+  it("does not leave a dangling aria-labelledby on the input OR the group when no Label is rendered", () => {
+    render(
+      <NumberField.Root locale="en-US">
+        <NumberField.Group data-testid="group">
+          <NumberField.Input data-testid="input" aria-label="Amount" />
+        </NumberField.Group>
+      </NumberField.Root>
+    );
+    const input = screen.getByTestId("input");
+    expect(input).toHaveAttribute("aria-label", "Amount");
+    expect(input).not.toHaveAttribute("aria-labelledby");
+    // The role="group" wrapper must not keep the dangling fallback either.
+    expect(screen.getByTestId("group")).not.toHaveAttribute("aria-labelledby");
+  });
+
+  it("respects an explicit aria-labelledby spread onto the Input", () => {
+    render(
+      <NumberField.Root locale="en-US">
+        <span id="external-label">Amount</span>
+        <NumberField.Group>
+          <NumberField.Input data-testid="input" aria-labelledby="external-label" />
+        </NumberField.Group>
+      </NumberField.Root>
+    );
+    expect(screen.getByTestId("input")).toHaveAttribute(
+      "aria-labelledby",
+      "external-label"
+    );
+  });
+
+  it("points the group's aria-labelledby at the rendered Label", () => {
+    render(
+      <NumberField.Root locale="en-US">
+        <NumberField.Label>Amount</NumberField.Label>
+        <NumberField.Group data-testid="group">
+          <NumberField.Input data-testid="input" />
+        </NumberField.Group>
+      </NumberField.Root>
+    );
+    const labelId = screen.getByText("Amount").getAttribute("id");
+    expect(labelId).toBeTruthy();
+    expect(screen.getByTestId("group")).toHaveAttribute("aria-labelledby", labelId);
+    expect(screen.getByTestId("input")).toHaveAttribute("aria-labelledby", labelId);
+  });
+
+  it("keeps group/input wired for a custom label built from aria.labelProps", () => {
+    render(
+      <NumberField.Root locale="en-US">
+        <CustomLabel>Amount</CustomLabel>
+        <NumberField.Group data-testid="group">
+          <NumberField.Input data-testid="input" />
+        </NumberField.Group>
+      </NumberField.Root>
+    );
+    const labelId = screen.getByTestId("custom-label").getAttribute("id");
+    expect(labelId).toBeTruthy();
+    expect(screen.getByTestId("group")).toHaveAttribute("aria-labelledby", labelId);
+    expect(screen.getByTestId("input")).toHaveAttribute("aria-labelledby", labelId);
+  });
+
+  it("keeps the label registered through the render-prop function form", () => {
+    // The render function must receive the registration ref so it can spread it
+    // onto the rendered label (React 18 drops ref from props without threading).
+    let receivedRef: unknown;
+    render(
+      <NumberField.Root locale="en-US">
+        <NumberField.Label
+          render={(props) => {
+            receivedRef = (props as { ref?: unknown }).ref;
+            return <label {...props} data-testid="rp-label" />;
+          }}
+        >
+          Amount
+        </NumberField.Label>
+        <NumberField.Group data-testid="group">
+          <NumberField.Input data-testid="input" />
+        </NumberField.Group>
+      </NumberField.Root>
+    );
+    expect(typeof receivedRef).toBe("function");
+    const labelId = screen.getByTestId("rp-label").getAttribute("id");
+    expect(labelId).toBeTruthy();
+    expect(screen.getByTestId("group")).toHaveAttribute("aria-labelledby", labelId);
+    expect(screen.getByTestId("input")).toHaveAttribute("aria-labelledby", labelId);
+  });
+
+  it("keeps the label registered through the render-prop element form", () => {
+    render(
+      <NumberField.Root locale="en-US">
+        <NumberField.Label render={<label data-testid="rp-el-label" />}>
+          Amount
+        </NumberField.Label>
+        <NumberField.Group data-testid="group">
+          <NumberField.Input data-testid="input" />
+        </NumberField.Group>
+      </NumberField.Root>
+    );
+    const labelId = screen.getByTestId("rp-el-label").getAttribute("id");
+    expect(labelId).toBeTruthy();
+    expect(screen.getByTestId("group")).toHaveAttribute("aria-labelledby", labelId);
+    expect(screen.getByTestId("input")).toHaveAttribute("aria-labelledby", labelId);
+  });
+
+  it("composes a consumer ref on a render-prop element with label registration", () => {
+    // A ref on the render element must not replace the registration ref — both
+    // must fire, so the consumer gets their node AND the group/input stay wired.
+    const myRef = vi.fn();
+    render(
+      <NumberField.Root locale="en-US">
+        <NumberField.Label render={<label ref={myRef} data-testid="rp-ref-label" />}>
+          Amount
+        </NumberField.Label>
+        <NumberField.Group data-testid="group">
+          <NumberField.Input data-testid="input" />
+        </NumberField.Group>
+      </NumberField.Root>
+    );
+    expect(myRef).toHaveBeenCalled();
+    expect(myRef.mock.calls[0][0]).toBeInstanceOf(HTMLLabelElement);
+    const labelId = screen.getByTestId("rp-ref-label").getAttribute("id");
+    expect(labelId).toBeTruthy();
+    expect(screen.getByTestId("group")).toHaveAttribute("aria-labelledby", labelId);
+    expect(screen.getByTestId("input")).toHaveAttribute("aria-labelledby", labelId);
+  });
+
+  it("runs a consumer ref's React 19 cleanup function on unmount", () => {
+    const cleanup = vi.fn();
+    const refWithCleanup = vi.fn(() => cleanup);
+    const { unmount } = render(
+      <NumberField.Root locale="en-US">
+        <NumberField.Label ref={refWithCleanup}>Amount</NumberField.Label>
+        <NumberField.Group>
+          <NumberField.Input data-testid="input" />
+        </NumberField.Group>
+      </NumberField.Root>
+    );
+    // Merged ref is memoized → the consumer ref attaches once and its cleanup is
+    // preserved (not dropped) and runs exactly once on unmount.
+    expect(refWithCleanup).toHaveBeenCalledTimes(1);
+    expect(cleanup).not.toHaveBeenCalled();
+    unmount();
+    expect(cleanup).toHaveBeenCalledTimes(1);
+  });
+
+  it("keeps a render-element consumer ref stable across the hasLabel re-render", () => {
+    // The composed ref for the element render-prop form must be memoized: an
+    // unstable identity would detach/reattach on the hasLabel update and run the
+    // consumer cleanup early. Expect a single attach and a single cleanup.
+    const cleanup = vi.fn();
+    const refWithCleanup = vi.fn(() => cleanup);
+    const { unmount } = render(
+      <NumberField.Root locale="en-US">
+        <NumberField.Label render={<label ref={refWithCleanup} data-testid="cl-el" />}>
+          Amount
+        </NumberField.Label>
+        <NumberField.Group data-testid="group">
+          <NumberField.Input data-testid="input" />
+        </NumberField.Group>
+      </NumberField.Root>
+    );
+    // Registration still took effect (group is wired) without churning the ref.
+    const labelId = screen.getByTestId("cl-el").getAttribute("id");
+    expect(screen.getByTestId("group")).toHaveAttribute("aria-labelledby", labelId);
+    expect(refWithCleanup).toHaveBeenCalledTimes(1);
+    expect(cleanup).not.toHaveBeenCalled();
+    unmount();
+    expect(cleanup).toHaveBeenCalledTimes(1);
   });
 });
 

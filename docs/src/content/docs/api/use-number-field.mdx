@@ -60,8 +60,8 @@ All other props from `UseNumberFieldStateOptions` (`minValue`, `maxValue`,
 
 | Key | Spread onto | Description |
 |-----|------------|-------------|
-| `labelProps` | `<label>` | `htmlFor` wired to the input `id`. |
-| `groupProps` | wrapping `<div>` | `role="group"`, `aria-labelledby` pointing at the label. |
+| `labelProps` | `<label>` | `htmlFor` wired to the input `id`, plus a `ref` that registers the label so `inputProps`/`groupProps` add `aria-labelledby`. Spread it as-is; don't drop the `ref`. |
+| `groupProps` | wrapping `<div>` | `role="group"`, `aria-labelledby` pointing at the label (only when a label is rendered). |
 | `inputProps` | `<input>` | Full ARIA spinbutton, keyboard/wheel handlers, cursor logic. |
 | `incrementButtonProps` | increment `<button>` | `aria-label="Increase"`, `disabled`, press-and-hold. |
 | `decrementButtonProps` | decrement `<button>` | `aria-label="Decrease"`, `disabled`, press-and-hold. |

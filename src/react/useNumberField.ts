@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useId, useLayoutEffect, useMemo, useRef } from "react";
+import { useCallback, useEffect, useId, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { computeNewCursorPosition } from "../core/cursor.js";
 import { createFormatter } from "../core/formatter.js";
 import { localizeDigits, normalizeDigits } from "../core/normalizer.js";
@@ -817,15 +817,33 @@ export function useNumberField(
 
   // ── Prop maps ────────────────────────────────────────────────────────────
 
-  // Only fall back to the internal label id when the consumer hasn't supplied
-  // their own accessible name. Defaulting to `labelId` unconditionally points
-  // `aria-labelledby` at a `<label>` the consumer may never render (e.g. when
-  // they pass `aria-label` instead), producing a dangling reference.
-  const ariaLabelledBy = props["aria-labelledby"] ?? (props["aria-label"] ? undefined : labelId);
+  // Track whether a label element is actually mounted. `labelProps.ref` (below)
+  // registers/unregisters as it mounts, so `aria-labelledby` only points at the
+  // label when it truly exists — for any render path (built-in component, custom
+  // primitive, or fully headless), not just one that runs a specific effect.
+  const labelCountRef = useRef(0);
+  const [hasLabel, setHasLabel] = useState(false);
+  const labelRef = useCallback<React.RefCallback<HTMLElement>>((node) => {
+    if (node) {
+      labelCountRef.current += 1;
+      setHasLabel(true);
+    } else if (labelCountRef.current > 0) {
+      labelCountRef.current -= 1;
+      if (labelCountRef.current === 0) setHasLabel(false);
+    }
+  }, []);
 
-  const labelProps: React.LabelHTMLAttributes<HTMLLabelElement> = {
+  // Fall back to the internal label id only when the consumer hasn't supplied
+  // their own accessible name AND a label is actually rendered. Defaulting to
+  // `labelId` otherwise points `aria-labelledby` at a `<label>` that may not
+  // exist (e.g. when only `aria-label` is passed), producing a dangling ref.
+  const ariaLabelledBy =
+    props["aria-labelledby"] ?? (props["aria-label"] ? undefined : hasLabel ? labelId : undefined);
+
+  const labelProps: NumberFieldAria["labelProps"] = {
     id: labelId,
     htmlFor: inputId,
+    ref: labelRef,
   };
 
   const groupProps: React.HTMLAttributes<HTMLDivElement> = {

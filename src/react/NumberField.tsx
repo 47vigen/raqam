@@ -1,6 +1,6 @@
 "use client";
 
-import React, { forwardRef, useRef } from "react";
+import React, { forwardRef, useMemo, useRef } from "react";
 import type {
   NumberFieldRootProps,
   NumberFieldState,
@@ -18,27 +18,74 @@ import { useScrubArea } from "./useScrubArea.js";
 /**
  * Merge component props with a `render` prop.
  * Accepts either a React element or a render function.
+ *
+ * `forwardedRef` is threaded through explicitly because React 18 keeps `ref`
+ * out of `element.props`, so a render-prop element would otherwise lose refs the
+ * default element depends on — e.g. the label-registration ref carried by
+ * `labelProps`. When provided, it takes precedence over the render element's own
+ * `ref`; callers that need to keep a consumer ref must compose it into
+ * `forwardedRef` themselves (see `<NumberField.Label>`), where it can be
+ * memoized for a stable identity.
  */
 function renderWith(
   defaultElement: React.ReactElement,
   render: RenderProp | undefined,
-  state: NumberFieldState
+  state: NumberFieldState,
+  forwardedRef?: React.Ref<unknown>
 ): React.ReactElement {
   if (!render) return defaultElement;
 
+  const baseProps = { ...(defaultElement.props as Record<string, unknown>) };
+  if (forwardedRef != null) baseProps.ref = forwardedRef;
+
   if (typeof render === "function") {
-    return render(defaultElement.props as Record<string, unknown>, state);
+    return render(baseProps, state);
   }
 
-  // Element form: clone with merged props
-  return React.cloneElement(
-    render,
-    Object.assign(
-      {},
-      defaultElement.props as Record<string, unknown>,
-      render.props as Record<string, unknown>
-    )
-  );
+  // Element form: clone with merged props.
+  const merged = Object.assign({}, baseProps, render.props as Record<string, unknown>);
+  if (forwardedRef != null) merged.ref = forwardedRef;
+  return React.cloneElement(render, merged);
+}
+
+// ── Ref helpers ───────────────────────────────────────────────────────────────
+
+// React 19 exposes a React element's `ref` as a regular prop; React ≤18 stores
+// it on the element itself (and reading `element.ref` on React 19 logs a
+// deprecation warning), so branch on the version to read it without warnings.
+const REF_IN_PROPS = Number.parseInt(React.version, 10) >= 19;
+
+function getElementRef(el: React.ReactElement): React.Ref<unknown> | undefined {
+  if (REF_IN_PROPS) return (el.props as { ref?: React.Ref<unknown> }).ref;
+  return (el as unknown as { ref?: React.Ref<unknown> }).ref;
+}
+
+/**
+ * Compose multiple refs (callback or object) into one callback ref. Honors
+ * React 19 cleanup-returning callback refs: each function ref's returned cleanup
+ * (or a synthesized `ref(null)` for legacy refs / `current = null` for object
+ * refs) is collected and run from the combined ref's own returned cleanup, so
+ * consumer cleanups aren't dropped on unmount/ref change.
+ */
+function mergeRefs<T>(...refs: (React.Ref<T> | undefined)[]): React.RefCallback<T> {
+  return (node) => {
+    const cleanups: (() => void)[] = [];
+    for (const ref of refs) {
+      if (ref == null) continue;
+      if (typeof ref === "function") {
+        const result = ref(node);
+        cleanups.push(typeof result === "function" ? result : () => ref(null));
+      } else {
+        (ref as React.MutableRefObject<T | null>).current = node;
+        cleanups.push(() => {
+          (ref as React.MutableRefObject<T | null>).current = null;
+        });
+      }
+    }
+    return () => {
+      for (const cleanup of cleanups) cleanup();
+    };
+  };
 }
 
 // ── Data attributes helper ────────────────────────────────────────────────────
@@ -163,12 +210,20 @@ const Label = forwardRef<HTMLLabelElement, LabelProps>(function NumberFieldLabel
   ref
 ) {
   const { aria, state } = useNumberFieldContext();
+  // labelProps carries a registration ref; merge it with the forwarded ref and,
+  // for the element render-prop form, the consumer's own ref on that element, so
+  // all fire (the registration is what keeps Input/Group's aria-labelledby).
+  // Memoized for a stable identity so React doesn't detach/reattach (and re-run
+  // ref cleanups) every render — including across the hasLabel re-render.
+  const { ref: labelRef, ...labelProps } = aria.labelProps;
+  const renderRef = React.isValidElement(render) ? getElementRef(render) : undefined;
+  const mergedRef = useMemo(() => mergeRefs(ref, labelRef, renderRef), [ref, labelRef, renderRef]);
   const el = (
-    <label ref={ref} {...aria.labelProps} {...rest}>
+    <label ref={mergedRef} {...labelProps} {...rest}>
       {children}
     </label>
   );
-  return renderWith(el, render, state);
+  return renderWith(el, render, state, mergedRef);
 });
 
 // ── Group ─────────────────────────────────────────────────────────────────────

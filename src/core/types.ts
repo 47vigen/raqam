@@ -231,7 +231,15 @@ export interface UseNumberFieldProps extends UseNumberFieldStateOptions {
 }
 
 export interface NumberFieldAria {
-  labelProps: React.LabelHTMLAttributes<HTMLLabelElement>;
+  /**
+   * Props for the label element. Includes a `ref` callback that registers the
+   * label's presence with the hook — spread it onto whatever element you render
+   * as the label (built-in `<NumberField.Label>` or a custom primitive) so the
+   * input/group keep their `aria-labelledby` wiring and avoid dangling refs.
+   */
+  labelProps: React.LabelHTMLAttributes<HTMLLabelElement> & {
+    ref?: React.RefCallback<HTMLElement>;
+  };
   groupProps: React.HTMLAttributes<HTMLDivElement>;
   inputProps: React.InputHTMLAttributes<HTMLInputElement>;
   hiddenInputProps: React.InputHTMLAttributes<HTMLInputElement> | null;
