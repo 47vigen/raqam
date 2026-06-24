@@ -74,6 +74,7 @@ Returned API:
 | `parse(input)` | Returns `{ value, isValid, isIntermediate }`. |
 | `isIntermediate(input)` | Detects incomplete-but-valid editing states like `"-"` or `"1."`. |
 | `getLocaleInfo()` | Returns locale metadata used by the parser. |
+| `strip(input)` | Strips formatting affordances (grouping separators, currency symbol, prefix/suffix, percent sign) from `input`, returning the bare numeric string (ASCII digits, optional leading `-`, at most one `.`). Typed trailing zeros are preserved. Returns `string`. |
 
 ## `normalizeDigits(input)`
 

@@ -33,10 +33,12 @@ are also accepted here for convenience) plus:
 | Prop | Type | Default | Description |
 |------|------|---------|-------------|
 | `label` | `string` | — | Visible label text; used as the `aria-label` fallback. |
+| `incrementLabel` | `string` | `"Increase"` | Accessible label for the increment button (`incrementButtonProps`); set for i18n. |
+| `decrementLabel` | `string` | `"Decrease"` | Accessible label for the decrement button (`decrementButtonProps`); set for i18n. |
 | `id` | `string` | auto | Explicit `id` for the `<input>`. Auto-generated via `useId` if omitted. |
 | `aria-label` | `string` | — | Accessible label when no visible label is used. |
 | `aria-labelledby` | `string` | — | Points to an external label element. |
-| `aria-describedby` | `string` | — | Points to a description element (set this to wire `<NumberField.Description>` — see [Accessibility](/guides/accessibility)). |
+| `aria-describedby` | `string` | — | Points to a description element. Wiring `<NumberField.Description>` (or any element spreading `descriptionProps`) is now automatic while it is mounted; a value you pass here is merged with it rather than required — see [Accessibility](/guides/accessibility). |
 | `name` | `string` | — | Enables `hiddenInputProps` for native form submission. |
 | `allowMouseWheel` | `boolean` | `false` | Enables wheel-based increment/decrement. |
 | `copyBehavior` | `"formatted" \| "raw" \| "number"` | `"formatted"` | What goes to the clipboard on Copy/Cut. |
@@ -66,7 +68,7 @@ All other props from `UseNumberFieldStateOptions` (`minValue`, `maxValue`,
 | `incrementButtonProps` | increment `<button>` | `aria-label="Increase"`, `disabled`, press-and-hold. |
 | `decrementButtonProps` | decrement `<button>` | `aria-label="Decrease"`, `disabled`, press-and-hold. |
 | `hiddenInputProps` | `<input type="hidden">` | `value` = the raw number for form submission. `null` when no `name` is set. |
-| `descriptionProps` | description `<p>` | A generated `id` you can reference via `aria-describedby` on the input. |
+| `descriptionProps` | description `<p>` | A generated `id`, plus a `ref` that registers the description so the input's `aria-describedby` auto-wires to it while it is mounted. Spread it as-is; don't drop the `ref`. |
 | `errorMessageProps` | error `<p>` | `role="alert"`, `aria-live="polite"`. Auto-linked via the input's `aria-errormessage` when invalid. |
 
 ## Keyboard behaviour (built-in)

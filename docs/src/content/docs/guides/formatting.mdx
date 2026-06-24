@@ -51,8 +51,9 @@ still groups live even while a trailing decimal is in progress — inserting dig
 into `$12.50` correctly shows `$9,912.50`.
 
 <Aside type="tip">
-  Need the *exact* string the user typed (trailing zeros and all) before any
-  float conversion? Read `state.rawValue` or pass `onRawChange`. See
+  Need the *unformatted, precision-preserving* numeric string (grouping /
+  currency / prefix / suffix stripped, locale decimal normalized to `.`, typed
+  trailing zeros kept)? Read `state.rawValue` or pass `onRawChange`. See
   [Financial patterns](/recipes/financial#arbitrary-precision-crypto--scientific).
 </Aside>
 

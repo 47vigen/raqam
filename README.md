@@ -228,8 +228,10 @@ For financial apps that need to avoid IEEE 754 float rounding:
 ```tsx
 <NumberField.Root
   onRawChange={(rawValue) => {
-    // rawValue is the exact string before any JS float conversion
-    // e.g. "0.1000000001" — feed it to your BigDecimal library
+    // rawValue is the unformatted, precision-preserving numeric string
+    // (grouping / currency / prefix / suffix stripped, locale decimal
+    // normalized to ".", typed trailing zeros kept) — full precision beyond
+    // JS float. e.g. "0.1000000001" — feed it to your BigDecimal library
     myDecimal.set(rawValue)
   }}
 />

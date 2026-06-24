@@ -24,7 +24,7 @@ manually.
 | `aria-readonly` | `true` when readOnly | |
 | `aria-required` | `true` when required | Pass `required` prop |
 | `aria-labelledby` | — | Auto-wired from `<NumberField.Label>` |
-| `aria-describedby` | — | Only set when you pass `aria-describedby` on `<NumberField.Input>` — see [Associating help text](#associating-help-text) |
+| `aria-describedby` | description element `id` | Auto-wired from a mounted `<NumberField.Description>`, merged with any `aria-describedby` you pass on `<NumberField.Input>` — see [Associating help text](#associating-help-text) |
 | `aria-errormessage` | error element `id` | Auto-wired to `<NumberField.ErrorMessage>` when the field is invalid |
 | `inputMode` | `"decimal"` | Surfaces the numeric keyboard on mobile |
 | `type` | `"text"` | Always `text` (not `number`) to avoid browser UI conflicts |
@@ -33,11 +33,16 @@ manually.
 ### Button elements
 
 Increment and decrement buttons receive:
-- `aria-label`: `"Increase"` / `"Decrease"`. To translate them, pass your own
-  `aria-label` on `<NumberField.Increment>` / `<NumberField.Decrement>` — it
-  overrides the default.
+- `aria-label`: `"Increase"` / `"Decrease"`. For i18n, the preferred hook is the
+  `incrementLabel` / `decrementLabel` props on `<NumberField.Root>` (defaults
+  `"Increase"` / `"Decrease"`). You can still override per-button by passing your
+  own `aria-label` on `<NumberField.Increment>` / `<NumberField.Decrement>` — it
+  takes precedence over the default.
 - `tabIndex={-1}`: Buttons are intentionally outside the Tab order
 - `disabled`: When at `minValue`/`maxValue` or when the field is disabled
+
+The scrub area is labelled via `<NumberField.ScrubArea label="…">` (default
+`"Scrub to change value"`).
 
 ## Keyboard navigation
 
@@ -85,18 +90,23 @@ linked to it via `aria-errormessage` whenever the field is invalid.
 
 ## Associating help text
 
-`<NumberField.ErrorMessage>` is wired to the input automatically. **Help text is
-not** — raqam does not yet auto-link `<NumberField.Description>` to the input.
-To describe a field for screen readers, give your help element an `id` and pass
-it as `aria-describedby` on `<NumberField.Input>`:
+`<NumberField.Description>` is automatically associated to the input via
+`aria-describedby` while it is mounted — just drop it in, no manual wiring
+required:
 
 ```tsx
 <NumberField.Root locale="en-US">
   <NumberField.Label>Quantity</NumberField.Label>
-  <NumberField.Input aria-describedby="qty-help" />
-  <p id="qty-help">Enter a value between 0 and 100.</p>
+  <NumberField.Input />
+  <NumberField.Description>
+    Enter a value between 0 and 100.
+  </NumberField.Description>
 </NumberField.Root>
 ```
+
+If you also pass `aria-describedby` on `<NumberField.Input>`, your value is
+merged with the description's `id` (consumer value first), not dropped. As with
+`aria-labelledby`, the wiring is applied after mount.
 
 ## Accessible label patterns
 

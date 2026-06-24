@@ -252,7 +252,8 @@ export function useNumberFieldState(options: UseNumberFieldStateOptions): Number
   // scientific, unit). Without it, the value is derived by parsing `val`.
   const setInputValue = useCallback(
     (val: string, knownValue?: number | null) => {
-      const value = knownValue !== undefined ? knownValue : parser.parse(val).value;
+      const parsed = parser.parse(val);
+      const value = knownValue !== undefined ? knownValue : parsed.value;
 
       // Strict clamping: reject input that goes out of range (skipped when allowOutOfRange)
       if (clampBehavior === "strict" && !allowOutOfRange && value !== null) {
@@ -263,9 +264,27 @@ export function useNumberFieldState(options: UseNumberFieldStateOptions): Number
       setInputValueRaw(val);
       lastEmittedRef.current = value;
       setNumberValue(value);
-      // rawValue tracks what user typed, not the formatted output
-      setRawValueState(value !== null ? val : null);
-      onRawChange?.(value !== null ? val : null);
+
+      // rawValue is the *unformatted*, precision-preserving string — not the
+      // grouped / currency-decorated display. Prefer the affordance-stripped form
+      // (digits + "." + sign, trailing zeros intact) since it keeps the exact
+      // digits the user typed — but only when it numerically denotes `value`.
+      // strip() is NOT the inverse of parse() for rescaling styles (percent
+      // divides typed digits by 100: "50%" strips to "50" but means 0.5) or for
+      // non-invertible notation (compact "2.5K", scientific, unit, custom
+      // formatters); there, fall back to the canonical numeric string.
+      let raw: string | null = null;
+      if (value !== null) {
+        const stripped = parser.strip(val);
+        if (/\d/.test(stripped) && Number(stripped) === value) {
+          // `value` is -0-normalized everywhere, so never surface a "-0" raw.
+          raw = value === 0 && stripped.startsWith("-") ? stripped.slice(1) : stripped;
+        } else {
+          raw = String(value);
+        }
+      }
+      setRawValueState(raw);
+      onRawChange?.(raw);
       applyValidation(value);
     },
     [

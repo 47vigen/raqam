@@ -217,6 +217,10 @@ export interface UseNumberFieldProps extends UseNumberFieldStateOptions {
   stepHoldDelay?: number;
   /** Initial milliseconds between repeats during press-and-hold (default: 200) */
   stepHoldInterval?: number;
+  /** Accessible label for the increment button (default: "Increase") */
+  incrementLabel?: string;
+  /** Accessible label for the decrement button (default: "Decrease") */
+  decrementLabel?: string;
   onFocus?: (e: React.FocusEvent<HTMLInputElement>) => void;
   onBlur?: (e: React.FocusEvent<HTMLInputElement>) => void;
   /**
@@ -245,7 +249,14 @@ export interface NumberFieldAria {
   hiddenInputProps: React.InputHTMLAttributes<HTMLInputElement> | null;
   incrementButtonProps: React.ButtonHTMLAttributes<HTMLButtonElement>;
   decrementButtonProps: React.ButtonHTMLAttributes<HTMLButtonElement>;
-  descriptionProps: React.HTMLAttributes<HTMLElement>;
+  descriptionProps: React.HTMLAttributes<HTMLElement> & {
+    /**
+     * Registration ref — spread it onto the rendered description element so the
+     * input's `aria-describedby` only points here while a description is mounted
+     * (mirrors `labelProps.ref`, avoiding a dangling reference otherwise).
+     */
+    ref?: React.RefCallback<HTMLElement>;
+  };
   errorMessageProps: React.HTMLAttributes<HTMLElement>;
 }
 
@@ -259,8 +270,14 @@ export interface ScrubAreaOptions {
    * - 'both': uses whichever axis has greater movement
    */
   direction?: "horizontal" | "vertical" | "both";
-  /** Pixels of drag movement required for one step (default: 4) */
+  /**
+   * Pixels of drag movement required for one step (default: 4). Values below 1
+   * are clamped to 1 to keep stepping bounded (0 or negative would otherwise
+   * loop forever).
+   */
   pixelSensitivity?: number;
+  /** Accessible label for the scrub area (default: "Scrub to change value") */
+  label?: string;
 }
 
 // ── Component API ─────────────────────────────────────────────────────────────

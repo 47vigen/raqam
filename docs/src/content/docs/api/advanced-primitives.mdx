@@ -68,6 +68,7 @@ Pointer Lock powered drag-to-adjust behavior for custom scrub handles.
 const { scrubAreaProps, isScrubbing } = useScrubArea(state, {
   direction: "horizontal",
   pixelSensitivity: 4,
+  label: "Scrub to change value",
 });
 
 <span {...scrubAreaProps}>
@@ -80,7 +81,8 @@ Options:
 | Option | Default | Description |
 |--------|---------|-------------|
 | `direction` | `"horizontal"` | `"horizontal"`, `"vertical"`, or `"both"`. |
-| `pixelSensitivity` | `4` | Drag distance required for each step. |
+| `pixelSensitivity` | `4` | Drag distance required for each step. Values below 1 are clamped to 1px/step. |
+| `label` | `"Scrub to change value"` | Accessible label applied to `scrubAreaProps['aria-label']`. |
 
 Return value:
 

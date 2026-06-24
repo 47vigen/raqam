@@ -23,7 +23,7 @@ Peer deps: **React 18 or 19** (+ `react-dom`).
 | `value` | `number \| null` | — | Controlled value |
 | `defaultValue` | `number \| null` | `null` | Uncontrolled initial value |
 | `onChange` | `(v: number \| null) => void` | — | Fires when the parsed value changes |
-| `onRawChange` | `(raw: string \| null) => void` | — | Exact typed string, pre-float |
+| `onRawChange` | `(raw: string \| null) => void` | — | Unformatted, precision-preserving numeric string (grouping/currency/prefix/suffix stripped, locale decimal → `.`, trailing zeros kept; falls back to canonical numeric string for percent/compact/scientific/unit/custom `formatValue`) |
 | `locale` | `string` | runtime | BCP 47 tag |
 | `formatOptions` | `Intl.NumberFormatOptions` | `{}` | Full Intl options |
 | `minValue` / `maxValue` | `number` | — | Range |
@@ -41,6 +41,7 @@ Peer deps: **React 18 or 19** (+ `react-dom`).
 | `liveFormat` | `boolean` | `true` | Off ⇒ format on blur only |
 | `validate` | `(v) => boolean \| string \| null \| undefined` | — | `string` ⇒ error message |
 | `disabled` / `readOnly` / `required` | `boolean` | `false` | |
+| `incrementLabel` / `decrementLabel` | `string` | `"Increase"` / `"Decrease"` | Stepper button aria-labels (i18n) |
 | `formatValue` | `(v: number) => string` | — | Custom formatter |
 | `parseValue` | `(s: string) => { value: number\|null; isIntermediate: boolean }` | — | Custom parser |
 
@@ -85,9 +86,10 @@ builds its own formatter/parser).
 
 `Root` · `Label` · `Group` · `Input` · `Increment` · `Decrement` · `HiddenInput`
 · `ScrubArea` (Pointer Lock; `role="slider"`, arrow-key accessible; props
-`direction` `"horizontal"|"vertical"|"both"`, `pixelSensitivity` default 4) ·
-`ScrubAreaCursor` (renders only while scrubbing) · `Description` (not auto-linked —
-set `aria-describedby` on `Input` yourself) · `ErrorMessage` (auto-renders
+`direction` `"horizontal"|"vertical"|"both"`, `pixelSensitivity` default 4 (values
+<1 clamped), `label` default `"Scrub to change value"`) ·
+`ScrubAreaCursor` (renders only while scrubbing) · `Description` (auto-linked via
+the input's `aria-describedby` while mounted) · `ErrorMessage` (auto-renders
 `validationError`) · `Formatted` (`aria-hidden` read-only display).
 
 `Label`/`Group`/`Input`/`Increment`/`Decrement`/`ScrubArea`/`ScrubAreaCursor`/
@@ -133,7 +135,7 @@ Custom digits: `registerLocale({ digitBlocks: [[start, end]] })`.
 ## Core / server API
 
 `createFormatter(opts)` → `{ format, formatToParts, formatResult, getLocaleInfo }`
-· `createParser(opts)` → `{ parse, isIntermediate, getLocaleInfo }`
+· `createParser(opts)` → `{ parse, isIntermediate, getLocaleInfo, strip }` (`strip(input)` ⇒ bare numeric string, affordances removed, trailing zeros kept)
 · `normalizeDigits(s)` · `registerLocale(cfg)` · `getCaretBoundary(formatted, info)`
 · `computeNewCursorPosition(old, oldCaret, newFormatted, info, inputType?)` · `presets`.
 
@@ -143,7 +145,7 @@ Result types: `LocaleInfo { decimalSeparator, groupingSeparator, minusSign, zero
 ## Advanced primitives
 
 `useControllableState` · `usePressAndHold(cb, { delay, interval, disabled })` ·
-`useScrubArea(state, { direction, pixelSensitivity })` → `{ isScrubbing, scrubAreaProps, virtualCursor }`
+`useScrubArea(state, { direction, pixelSensitivity, label })` → `{ isScrubbing, scrubAreaProps, virtualCursor }`
 · `NumberFieldContext` / `useNumberFieldContext()` → `{ state, aria, inputRef, props }`.
 
 ## Data attributes (CSS)

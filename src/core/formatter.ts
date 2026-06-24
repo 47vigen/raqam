@@ -5,7 +5,13 @@ import type { FormatResult, LocaleInfo } from "./types.js";
 /** Probe value that will surface decimal AND grouping parts */
 const PROBE_VALUE = 12345.6;
 
-/** Cache key = locale + JSON.stringify(options) */
+/**
+ * LRU cache of Intl.NumberFormat instances, keyed by locale + JSON.stringify
+ * (options). Bounded so apps that vary formatOptions at high cardinality —
+ * per-row currencies in a large table, per-keystroke fraction-digit changes —
+ * don't grow it without limit for the process lifetime.
+ */
+const FORMATTER_CACHE_MAX = 256;
 const formatterCache = new Map<string, Intl.NumberFormat>();
 
 function getFormatter(
@@ -13,10 +19,19 @@ function getFormatter(
   options: Intl.NumberFormatOptions | undefined
 ): Intl.NumberFormat {
   const key = `${locale ?? ""}::${JSON.stringify(options ?? {})}`;
-  let fmt = formatterCache.get(key);
-  if (!fmt) {
-    fmt = new Intl.NumberFormat(locale, options);
-    formatterCache.set(key, fmt);
+  const cached = formatterCache.get(key);
+  if (cached) {
+    // Mark most-recently-used by re-inserting at the end of the Map's order.
+    formatterCache.delete(key);
+    formatterCache.set(key, cached);
+    return cached;
+  }
+  const fmt = new Intl.NumberFormat(locale, options);
+  formatterCache.set(key, fmt);
+  // Evict the least-recently-used entry (the first key) when over capacity.
+  if (formatterCache.size > FORMATTER_CACHE_MAX) {
+    const oldest = formatterCache.keys().next().value;
+    if (oldest !== undefined) formatterCache.delete(oldest);
   }
   return fmt;
 }

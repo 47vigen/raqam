@@ -40,6 +40,14 @@ export interface Parser {
   parse(input: string): ParseResult;
   isIntermediate(input: string): boolean;
   getLocaleInfo(): LocaleInfo;
+  /**
+   * Strip formatting affordances (grouping separators, currency symbol, prefix/
+   * suffix, percent sign…) from `input`, returning the bare numeric string
+   * (ASCII digits, an optional leading "-", and at most one "."). Trailing zeros
+   * the user typed are preserved. Useful for deriving a precision-preserving raw
+   * value from a formatted display string.
+   */
+  strip(input: string): string;
 }
 
 /**
@@ -209,5 +217,5 @@ export function createParser(opts: ParserOptions = {}): Parser {
     return parse(input).isIntermediate;
   }
 
-  return { parse, isIntermediate, getLocaleInfo };
+  return { parse, isIntermediate, getLocaleInfo, strip: stripAffordances };
 }

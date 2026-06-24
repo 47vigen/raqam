@@ -87,7 +87,7 @@ Avoid steering users toward undocumented or stale APIs when a documented path al
 - **Clipboard:** `copyBehavior` `"formatted"` (default) / `"raw"` / `"number"`.
 - **Wheel:** opt-in `allowMouseWheel`; only nudges while the input is focused.
 - **Validation:** `validate` returning `true` / error string; pairs with `NumberField.ErrorMessage`.
-- **Precision / finance:** `onRawChange` and `state.rawValue` for exact string before float conversion; optional custom `formatValue` / `parseValue`.
+- **Precision / finance:** `onRawChange` and `state.rawValue` give the unformatted, precision-preserving numeric string (affordances stripped, typed trailing zeros kept; falls back to the canonical numeric string for percent/compact/scientific/unit/custom `formatValue`); optional custom `formatValue` / `parseValue`.
 - **Display-only:** [useNumberFieldFormat](https://47vigen.github.io/raqam/api/use-number-field-format/) on the client; **`createFormatter` from `raqam/server`** on the server.
 - **Forms:** for native form submission, put `name` on `NumberField.Root` and render `NumberField.HiddenInput`.
 - **Hook API gotcha:** when using `useNumberFieldState` + `useNumberField` directly, pass the **same formatting options to both** (the behavior hook builds its own formatter/parser). The `NumberField.*` components do this for you.

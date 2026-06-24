@@ -80,7 +80,7 @@ how `clampBehavior` and `allowOutOfRange` interact.
 |------|------|---------|-------------|
 | `formatValue` | `(v: number) => string` | — | Replace the default formatter. |
 | `parseValue` | `(s: string) => { value: number \| null; isIntermediate: boolean }` | — | Replace the default parser. |
-| `onRawChange` | `(raw: string \| null) => void` | — | Called with the exact string the user typed (for arbitrary precision). |
+| `onRawChange` | `(raw: string \| null) => void` | — | Called with the unformatted, precision-preserving numeric string (grouping / currency / prefix / suffix stripped, locale decimal normalized to `.`, typed trailing zeros kept). For rescaling / non-invertible styles (percent, compact, scientific, unit, custom `formatValue`) it falls back to the canonical numeric string of the value. For arbitrary precision. |
 
 ### Interaction
 
@@ -99,7 +99,7 @@ behavior-only props (`copyBehavior`, `allowMouseWheel`, `name`, `label`,
 |----------|------|-------------|
 | `inputValue` | `string` | The formatted string currently shown in the input. |
 | `numberValue` | `number \| null` | The parsed numeric value (`null` when empty/invalid). |
-| `rawValue` | `string \| null` | The exact string the user typed (for precision use cases). |
+| `rawValue` | `string \| null` | The unformatted, precision-preserving numeric string (grouping / currency / prefix / suffix stripped, locale decimal normalized to `.`, typed trailing zeros kept). For rescaling / non-invertible styles (percent, compact, scientific, unit, custom `formatValue`) it falls back to the canonical numeric string of the value. |
 | `isFocused` | `boolean` | Whether the input is focused. |
 | `isScrubbing` | `boolean` | Whether a scrub drag is in progress. |
 | `canIncrement` | `boolean` | False when at `maxValue` or `disabled`. |

@@ -685,6 +685,39 @@ describe("NumberField Description and ErrorMessage", () => {
     expect(desc.id).toBeTruthy();
   });
 
+  it("points the input's aria-describedby at a rendered Description", () => {
+    render(
+      <NumberField.Root locale="en-US">
+        <NumberField.Input data-testid="input" />
+        <NumberField.Description data-testid="desc">Enter amount</NumberField.Description>
+      </NumberField.Root>
+    );
+    const input = screen.getByTestId("input");
+    const desc = screen.getByTestId("desc");
+    expect(input.getAttribute("aria-describedby")).toBe(desc.id);
+  });
+
+  it("leaves the input's aria-describedby unset when no Description is rendered", () => {
+    render(
+      <NumberField.Root locale="en-US">
+        <NumberField.Input data-testid="input" />
+      </NumberField.Root>
+    );
+    expect(screen.getByTestId("input")).not.toHaveAttribute("aria-describedby");
+  });
+
+  it("merges a consumer aria-describedby on Input with the Description id", () => {
+    render(
+      <NumberField.Root locale="en-US">
+        <NumberField.Input data-testid="input" aria-describedby="ext-hint" />
+        <NumberField.Description data-testid="desc">Help</NumberField.Description>
+      </NumberField.Root>
+    );
+    const input = screen.getByTestId("input");
+    const desc = screen.getByTestId("desc");
+    expect(input.getAttribute("aria-describedby")).toBe(`ext-hint ${desc.id}`);
+  });
+
   it("renders ErrorMessage with role=alert", () => {
     render(
       <NumberField.Root locale="en-US">

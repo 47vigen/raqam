@@ -36,7 +36,11 @@ export function useScrubArea(
   state: NumberFieldState,
   options: ScrubAreaOptions = {}
 ): ScrubAreaReturn {
-  const { direction = "horizontal", pixelSensitivity = 4 } = options;
+  const {
+    direction = "horizontal",
+    pixelSensitivity = 4,
+    label = "Scrub to change value",
+  } = options;
 
   const [isScrubbing, setIsScrubbingLocal] = useState(false);
 
@@ -79,8 +83,13 @@ export function useScrubArea(
 
     accumulatorRef.current += delta;
 
-    // Fire step when accumulated movement exceeds sensitivity
-    const sensitivity = sensitivityRef.current;
+    // Fire step when accumulated movement exceeds sensitivity. Clamp to ≥ 1px:
+    // a zero or negative sensitivity would make the loops below never progress
+    // (or fire millions of steps), hanging the tab.
+    const sensitivity = Math.max(1, sensitivityRef.current);
+    if (accumulatorRef.current >= sensitivity || accumulatorRef.current <= -sensitivity) {
+      stateRef.current._setLastChangeReason("scrub");
+    }
     while (accumulatorRef.current >= sensitivity) {
       stateRef.current.increment();
       accumulatorRef.current -= sensitivity;
@@ -140,9 +149,11 @@ export function useScrubArea(
     if (stateRef.current.options.disabled || stateRef.current.options.readOnly) return;
     if (e.key === "ArrowRight" || e.key === "ArrowUp") {
       e.preventDefault();
+      stateRef.current._setLastChangeReason("scrub");
       stateRef.current.increment();
     } else if (e.key === "ArrowLeft" || e.key === "ArrowDown") {
       e.preventDefault();
+      stateRef.current._setLastChangeReason("scrub");
       stateRef.current.decrement();
     }
   }, []);
@@ -159,7 +170,7 @@ export function useScrubArea(
       userSelect: "none" as const,
       WebkitUserSelect: "none" as const,
     } satisfies React.CSSProperties,
-    "aria-label": "Scrub to change value",
+    "aria-label": label,
     "data-scrubbing": isScrubbing ? "" : undefined,
     onPointerDown,
     onKeyDown,

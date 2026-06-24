@@ -1,11 +1,12 @@
 "use client";
 
-import { useCallback, useEffect, useId, useLayoutEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useId, useMemo, useRef, useState } from "react";
 import { computeNewCursorPosition } from "../core/cursor.js";
 import { createFormatter } from "../core/formatter.js";
 import { localizeDigits, normalizeDigits } from "../core/normalizer.js";
 import { createParser } from "../core/parser.js";
 import type { NumberFieldAria, NumberFieldState, UseNumberFieldProps } from "../core/types.js";
+import { useIsomorphicLayoutEffect } from "./useIsomorphicLayoutEffect.js";
 import { usePressAndHold } from "./usePressAndHold.js";
 
 // ── Tiny helper to safely escape regex special chars (including hyphen) ──────
@@ -74,6 +75,8 @@ export function useNumberField(
     copyBehavior = "formatted",
     stepHoldDelay = 400,
     stepHoldInterval = 200,
+    incrementLabel = "Increase",
+    decrementLabel = "Decrease",
     formatValue: customFormatValue,
     parseValue: customParseValue,
     onValueCommitted,
@@ -195,8 +198,14 @@ export function useNumberField(
   // ── Cursor engine ────────────────────────────────────────────────────────
   const pendingCursor = useRef<number | null>(null);
 
+  // Stable handle to the latest state so listeners/effects that only *invoke*
+  // state methods don't have to list the (per-render fresh) `state` object as a
+  // dependency — keeps the native wheel listener from re-subscribing every render.
+  const stateRef = useRef(state);
+  stateRef.current = state;
+
   // Restore cursor synchronously after React commits the new value to DOM
-  useLayoutEffect(() => {
+  useIsomorphicLayoutEffect(() => {
     if (
       pendingCursor.current !== null &&
       inputRef.current &&
@@ -219,17 +228,18 @@ export function useNumberField(
       if (disabled || readOnly) return;
       if (document.activeElement !== el) return;
       e.preventDefault();
-      state._setLastChangeReason("wheel");
+      const s = stateRef.current;
+      s._setLastChangeReason("wheel");
       if (e.deltaY < 0) {
-        state.increment();
+        s.increment();
       } else {
-        state.decrement();
+        s.decrement();
       }
     };
 
     el.addEventListener("wheel", handler, { passive: false });
     return () => el.removeEventListener("wheel", handler);
-  }, [allowMouseWheel, disabled, readOnly, state, inputRef]);
+  }, [allowMouseWheel, disabled, readOnly, inputRef]);
 
   // ── IME Composition state ────────────────────────────────────────────────
   // During CJK IME input, partial composed characters must not trigger live
@@ -395,7 +405,7 @@ export function useNumberField(
           // Custom format: can't predict cursor, place at end
           pendingCursor.current = displayValue.length;
         } else {
-          // Compute and stash cursor position for useLayoutEffect
+          // Compute and stash cursor position for the isomorphic layout effect
           pendingCursor.current = computeNewCursorPosition(
             rawInputValue,
             cursorPos,
@@ -840,6 +850,28 @@ export function useNumberField(
   const ariaLabelledBy =
     props["aria-labelledby"] ?? (props["aria-label"] ? undefined : hasLabel ? labelId : undefined);
 
+  // Mirror the label registration for the description so the input's
+  // aria-describedby points at <NumberField.Description> only while one is
+  // actually mounted — avoiding a dangling reference (the same class of bug fixed
+  // for aria-labelledby) when no description is rendered.
+  const descCountRef = useRef(0);
+  const [hasDescription, setHasDescription] = useState(false);
+  const descriptionRef = useCallback<React.RefCallback<HTMLElement>>((node) => {
+    if (node) {
+      descCountRef.current += 1;
+      setHasDescription(true);
+    } else if (descCountRef.current > 0) {
+      descCountRef.current -= 1;
+      if (descCountRef.current === 0) setHasDescription(false);
+    }
+  }, []);
+
+  // Combine the consumer's own aria-describedby with the internal description id
+  // (when present) so the description is announced by assistive technology.
+  const ariaDescribedBy =
+    [props["aria-describedby"], hasDescription ? descriptionId : null].filter(Boolean).join(" ") ||
+    undefined;
+
   const labelProps: NumberFieldAria["labelProps"] = {
     id: labelId,
     htmlFor: inputId,
@@ -861,7 +893,7 @@ export function useNumberField(
     spellCheck: false,
     "aria-label": props["aria-label"],
     "aria-labelledby": ariaLabelledBy,
-    "aria-describedby": props["aria-describedby"],
+    "aria-describedby": ariaDescribedBy,
     "aria-valuenow": state.numberValue ?? undefined,
     "aria-valuemin": minValue,
     "aria-valuemax": maxValue,
@@ -909,7 +941,7 @@ export function useNumberField(
   const incrementButtonProps: React.ButtonHTMLAttributes<HTMLButtonElement> = {
     type: "button",
     tabIndex: -1,
-    "aria-label": "Increase",
+    "aria-label": incrementLabel,
     disabled: disabled || !state.canIncrement,
     // Press-and-hold handlers replace simple onClick
     ...incrementHold,
@@ -919,15 +951,16 @@ export function useNumberField(
   const decrementButtonProps: React.ButtonHTMLAttributes<HTMLButtonElement> = {
     type: "button",
     tabIndex: -1,
-    "aria-label": "Decrease",
+    "aria-label": decrementLabel,
     disabled: disabled || !state.canDecrement,
     // Press-and-hold handlers replace simple onClick
     ...decrementHold,
     "data-disabled": disabled || !state.canDecrement ? "" : undefined,
   } as React.ButtonHTMLAttributes<HTMLButtonElement>;
 
-  const descriptionProps: React.HTMLAttributes<HTMLElement> = {
+  const descriptionProps: NumberFieldAria["descriptionProps"] = {
     id: descriptionId,
+    ref: descriptionRef,
   };
 
   const errorMessageProps: React.HTMLAttributes<HTMLElement> = {

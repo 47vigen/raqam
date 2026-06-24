@@ -47,8 +47,10 @@ For monetary inputs, always show exactly two decimal places:
 
 ## Arbitrary precision (crypto / scientific)
 
-Use `rawValue` + `onRawChange` to capture the exact string the user typed,
-bypassing JavaScript floating-point limitations:
+Use `rawValue` + `onRawChange` to capture the unformatted, precision-preserving
+numeric string (grouping / currency / prefix / suffix stripped, locale decimal
+normalized to `.`, typed trailing zeros kept), bypassing JavaScript
+floating-point limitations:
 
 ```tsx
 import { useState } from "react";

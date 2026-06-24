@@ -210,4 +210,63 @@ describe("NumberField.ScrubArea", () => {
 
     expect(mock.lockedElement).toBeNull();
   });
+
+  it("reports change reason 'scrub' on keyboard scrub", async () => {
+    const onValueChange = vi.fn();
+    render(
+      <NumberField.Root defaultValue={50} step={1} onValueChange={onValueChange}>
+        <NumberField.ScrubArea data-testid="scrub-area">Drag</NumberField.ScrubArea>
+        <NumberField.Input />
+      </NumberField.Root>
+    );
+    screen.getByTestId("scrub-area").focus();
+    await userEvent.keyboard("{ArrowRight}");
+    expect(onValueChange).toHaveBeenCalledWith(51, expect.objectContaining({ reason: "scrub" }));
+  });
+
+  it("reports change reason 'scrub' on pointer-lock drag", () => {
+    const mock = setupPointerLockMock();
+    const onValueChange = vi.fn();
+    render(
+      <NumberField.Root defaultValue={50} step={1} onValueChange={onValueChange}>
+        <NumberField.ScrubArea data-testid="scrub-area" pixelSensitivity={4}>
+          Drag
+        </NumberField.ScrubArea>
+        <NumberField.Input />
+      </NumberField.Root>
+    );
+    fireEvent.pointerDown(screen.getByTestId("scrub-area"), { button: 0, bubbles: true });
+    mock.simulateMouseMove(4, 0);
+    expect(onValueChange).toHaveBeenCalledWith(51, expect.objectContaining({ reason: "scrub" }));
+  });
+
+  it("does not hang when pixelSensitivity is 0 (clamps to 1px/step)", () => {
+    const mock = setupPointerLockMock();
+    const onChange = vi.fn();
+    render(
+      <NumberField.Root defaultValue={0} step={1} onChange={onChange}>
+        <NumberField.ScrubArea data-testid="scrub-area" pixelSensitivity={0}>
+          Drag
+        </NumberField.ScrubArea>
+        <NumberField.Input />
+      </NumberField.Root>
+    );
+    fireEvent.pointerDown(screen.getByTestId("scrub-area"), { button: 0, bubbles: true });
+    // A 3px move produces a finite number of steps; an unclamped 0 sensitivity
+    // would spin forever and time the test out instead.
+    mock.simulateMouseMove(3, 0);
+    expect(onChange).toHaveBeenCalledTimes(3);
+  });
+
+  it("uses a custom scrub aria-label", () => {
+    render(
+      <NumberField.Root defaultValue={1}>
+        <NumberField.ScrubArea data-testid="scrub-area" label="Glisser pour changer">
+          Drag
+        </NumberField.ScrubArea>
+        <NumberField.Input />
+      </NumberField.Root>
+    );
+    expect(screen.getByTestId("scrub-area")).toHaveAttribute("aria-label", "Glisser pour changer");
+  });
 });
