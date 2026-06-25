@@ -8,16 +8,30 @@ import { useControllableState } from "./useControllableState.js";
 
 function clamp(value: number, min?: number, max?: number): number {
   let v = value;
-  if (min !== undefined) v = Math.max(v, min);
-  if (max !== undefined) v = Math.min(v, max);
+  // Ignore non-finite bounds (NaN/Infinity) — Math.max/Math.min would otherwise
+  // return NaN and poison the committed value.
+  if (min !== undefined && Number.isFinite(min)) v = Math.max(v, min);
+  if (max !== undefined && Number.isFinite(max)) v = Math.min(v, max);
   return v;
 }
 
 function preciseAdd(a: number, b: number): number {
-  // Simple float precision fix — avoids 0.1 + 0.2 = 0.30000000000000004
+  // Float precision fix — avoids 0.1 + 0.2 = 0.30000000000000004. The scaling
+  // trick is only valid while the scaled operands stay within Number.MAX_SAFE_
+  // INTEGER (2^53). Fall back to plain addition when scaling would be unsafe:
+  //  - precision > 15: the operands can't be represented at that scale; capping
+  //    instead would round a tiny addend (e.g. 1e-20) to 0, dropping the step.
+  //  - scaled operand exceeds MAX_SAFE_INTEGER: rounding can drop the step or
+  //    move the value backwards.
   const precision = Math.max(decimalPlaces(a), decimalPlaces(b));
+  if (precision > 15) return a + b;
   const factor = 10 ** precision;
-  return Math.round(a * factor + b * factor) / factor;
+  const sa = a * factor;
+  const sb = b * factor;
+  if (!Number.isSafeInteger(Math.round(sa)) || !Number.isSafeInteger(Math.round(sb))) {
+    return a + b;
+  }
+  return Math.round(sa + sb) / factor;
 }
 
 function decimalPlaces(n: number): number {
@@ -41,11 +55,11 @@ export function useNumberFieldState(options: UseNumberFieldStateOptions): Number
   const {
     locale,
     formatOptions,
-    minValue,
-    maxValue,
-    step = 1,
-    largeStep,
-    smallStep,
+    minValue: rawMinValue,
+    maxValue: rawMaxValue,
+    step: rawStep = 1,
+    largeStep: rawLargeStep,
+    smallStep: rawSmallStep,
     allowNegative = true,
     allowDecimal = true,
     maximumFractionDigits,
@@ -59,6 +73,14 @@ export function useNumberFieldState(options: UseNumberFieldStateOptions): Number
     onRawChange,
     formatValue: customFormatValue,
   } = options;
+
+  // Sanitize numeric config. A non-finite/non-positive step would emit NaN or
+  // Infinity through increment/decrement (or dead-end stepping for 0), and
+  // non-finite bounds would poison clamp and the committed value. Drop bad
+  // values to safe defaults / undefined.
+  const step = Number.isFinite(rawStep) && rawStep > 0 ? rawStep : 1;
+  const minValue = Number.isFinite(rawMinValue) ? rawMinValue : undefined;
+  const maxValue = Number.isFinite(rawMaxValue) ? rawMaxValue : undefined;
 
   // When decimals are disallowed, fraction padding/scale is forced to 0 so
   // currency / fixedDecimalScale never pad ".00" (which the dot-strip would then
@@ -315,7 +337,10 @@ export function useNumberFieldState(options: UseNumberFieldStateOptions): Number
 
   // ── setNumberValue (external) ──────────────────────────────────────────────
   const setNumericValue = useCallback(
-    (val: number | null) => {
+    (rawVal: number | null) => {
+      // Never emit a non-finite value (NaN/Infinity) to onChange/ARIA/forms —
+      // treat it as empty. A catch-all behind the config sanitization above.
+      const val = rawVal !== null && !Number.isFinite(rawVal) ? null : rawVal;
       // Compute the display and update latestDisplayRef BEFORE setNumberValue, so
       // the onChange it triggers reports the matching formatted value (not the
       // previous render's).
@@ -398,8 +423,14 @@ export function useNumberFieldState(options: UseNumberFieldStateOptions): Number
   const safeNumberValue = numberValue != null && Number.isFinite(numberValue) ? numberValue : null;
 
   // ── Step computation ───────────────────────────────────────────────────────
-  const resolvedLargeStep = largeStep ?? step * 10;
-  const resolvedSmallStep = smallStep ?? step * 0.1;
+  const resolvedLargeStep =
+    Number.isFinite(rawLargeStep) && (rawLargeStep as number) > 0
+      ? (rawLargeStep as number)
+      : step * 10;
+  const resolvedSmallStep =
+    Number.isFinite(rawSmallStep) && (rawSmallStep as number) > 0
+      ? (rawSmallStep as number)
+      : step * 0.1;
 
   const canIncrement =
     !options.disabled &&

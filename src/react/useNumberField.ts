@@ -18,6 +18,18 @@ function escapeRegex(s: string): string {
 }
 
 /**
+ * The focused element resolved through the node's *root* — `document` in the
+ * light DOM, or the containing `ShadowRoot` when the field is inside a shadow
+ * tree (where `document.activeElement` only reports the host). Falls back to
+ * `document.activeElement` when no node is available.
+ */
+function activeElementWithin(node: Element | null): Element | null {
+  const root = node?.getRootNode() as Document | ShadowRoot | undefined;
+  if (root && "activeElement" in root) return root.activeElement;
+  return typeof document !== "undefined" ? document.activeElement : null;
+}
+
+/**
  * Parse scientific ("1e3", "1.23E4") and compact ("1.5K", "3.4M") notation that
  * the plain locale parser cannot handle. Used on paste so values copied from
  * spreadsheets / dashboards round-trip instead of being mangled by char-strip.
@@ -62,8 +74,8 @@ export function useNumberField(
   const {
     locale,
     formatOptions,
-    minValue,
-    maxValue,
+    minValue: rawMinValue,
+    maxValue: rawMaxValue,
     allowNegative = true,
     allowDecimal = true,
     allowMouseWheel = false,
@@ -88,6 +100,12 @@ export function useNumberField(
     parseValue: customParseValue,
     onValueCommitted,
   } = props; // formatValue/parseValue are on UseNumberFieldStateOptions (inherited)
+
+  // Drop non-finite bounds (mirrors useNumberFieldState) so aria-valuemin/max
+  // never render "NaN"/"Infinity" and out-of-range / Home / End never act on a
+  // bad bound.
+  const minValue = Number.isFinite(rawMinValue) ? rawMinValue : undefined;
+  const maxValue = Number.isFinite(rawMaxValue) ? rawMaxValue : undefined;
 
   // Compact/scientific/engineering notation produce formatted strings ("2.5K",
   // "1.5E3") whose suffix/exponent characters collide with continued typing, so
@@ -220,7 +238,7 @@ export function useNumberField(
     if (
       pendingCursor.current !== null &&
       inputRef.current &&
-      document.activeElement === inputRef.current
+      activeElementWithin(inputRef.current) === inputRef.current
     ) {
       inputRef.current.setSelectionRange(pendingCursor.current, pendingCursor.current);
       pendingCursor.current = null;
@@ -237,7 +255,7 @@ export function useNumberField(
 
     const handler = (e: WheelEvent) => {
       if (disabled || readOnly) return;
-      if (document.activeElement !== el) return;
+      if (activeElementWithin(el) !== el) return;
       e.preventDefault();
       const s = stateRef.current;
       s._setLastChangeReason("wheel");
@@ -942,10 +960,12 @@ export function useNumberField(
     onCut: copyBehavior !== "formatted" ? handleCut : undefined,
     onCompositionStart: handleCompositionStart,
     onCompositionEnd: handleCompositionEnd,
-    // RTL: numbers are always LTR, align-right in RTL contexts
-    // unicodeBidi: embed isolates the LTR number from surrounding RTL text
+    // RTL: keep the number LTR and align it to the right in RTL contexts.
+    // unicodeBidi "plaintext" auto-detects each run's direction, so the digits
+    // stay LTR while an RTL suffix / Arabic currency name falls to its natural
+    // side ("embed" forced the whole field LTR, mis-ordering those affordances).
     style: localeInfo.isRTL
-      ? { direction: "ltr", textAlign: "right", unicodeBidi: "embed" }
+      ? { direction: "ltr", textAlign: "right", unicodeBidi: "plaintext" }
       : undefined,
     // Data attributes for CSS styling
     "data-disabled": disabled ? "" : undefined,

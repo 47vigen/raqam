@@ -166,6 +166,20 @@ const formatter = createFormatter({
 const displayPrice = formatter.format(1234.56)  // "$1,234.56"
 ```
 
+### SSR / hydration notes
+
+- **Pin `locale` for SSR.** With no `locale`, formatting uses the runtime
+  default — the browser locale on the client but the host's ICU/OS locale on the
+  server. If they differ, the server-rendered value won't match the first client
+  render and React logs a hydration mismatch. Pass an explicit `locale` (the same
+  on both sides) whenever you server-render an initial value.
+- **Label/description ARIA wires up after mount.** `<NumberField.Label>` is
+  associated with the input via the native `htmlFor`/`id` in the SSR HTML
+  (screen readers honor it), but the redundant `aria-labelledby` (and
+  `aria-describedby` for `<NumberField.Description>`) are attached on the client
+  after the label/description registers — they appear post-hydration, not in the
+  static HTML.
+
 ## 🖱️ ScrubArea (drag to change value)
 
 ```tsx

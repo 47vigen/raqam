@@ -2,6 +2,24 @@ import type { FormatResult, LocaleInfo } from "./types.js";
 
 // ── Internal ──────────────────────────────────────────────────────────────────
 
+// Locally declared so the dev-only gate type-checks without @types/node.
+declare const process: { env?: Record<string, string | undefined> } | undefined;
+const IS_PRODUCTION =
+  typeof process !== "undefined" &&
+  typeof process.env !== "undefined" &&
+  process.env.NODE_ENV === "production";
+
+let warnedInvalidOptions = false;
+/** Warn once (dev only) when invalid formatOptions/locale force a fallback. */
+function warnInvalidFormatOptions(err: unknown): void {
+  if (IS_PRODUCTION || warnedInvalidOptions) return;
+  warnedInvalidOptions = true;
+  const detail = err instanceof Error ? err.message : String(err);
+  console.warn(
+    `[raqam] Invalid formatOptions/locale — falling back to a safe formatter. Check your \`locale\` and \`formatOptions\` (e.g. style:'currency' requires a \`currency\` code). Original error: ${detail}`
+  );
+}
+
 /** Probe value that will surface decimal AND grouping parts */
 const PROBE_VALUE = 12345.6;
 
@@ -26,7 +44,21 @@ function getFormatter(
     formatterCache.set(key, cached);
     return cached;
   }
-  const fmt = new Intl.NumberFormat(locale, options);
+  // Invalid options/locale (e.g. style:"currency" without `currency`,
+  // maximumFractionDigits out of range, a bad BCP-47 tag) make the constructor
+  // throw. Don't let that crash the render/SSR tree — fall back to a safe
+  // formatter (drop the offending options, then the locale) and warn in dev.
+  let fmt: Intl.NumberFormat;
+  try {
+    fmt = new Intl.NumberFormat(locale, options);
+  } catch (err) {
+    warnInvalidFormatOptions(err);
+    try {
+      fmt = new Intl.NumberFormat(locale);
+    } catch {
+      fmt = new Intl.NumberFormat();
+    }
+  }
   formatterCache.set(key, fmt);
   // Evict the least-recently-used entry (the first key) when over capacity.
   if (formatterCache.size > FORMATTER_CACHE_MAX) {

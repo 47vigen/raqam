@@ -541,3 +541,59 @@ describe("isFocused state", () => {
     expect(result.current.isFocused).toBe(false);
   });
 });
+
+describe("useNumberFieldState — numeric & config robustness", () => {
+  it("increment never moves backward near MAX_SAFE_INTEGER", () => {
+    const base = Number.MAX_SAFE_INTEGER;
+    const { result } = renderHook(() =>
+      useNumberFieldState({ locale: "en-US", defaultValue: base, step: 0.1 })
+    );
+    act(() => result.current.increment());
+    expect(result.current.numberValue).not.toBeNull();
+    expect(Number.isFinite(result.current.numberValue as number)).toBe(true);
+    expect(result.current.numberValue as number).toBeGreaterThanOrEqual(base);
+  });
+
+  it("increment with a tiny step stays finite and moves up", () => {
+    const { result } = renderHook(() =>
+      useNumberFieldState({ locale: "en-US", defaultValue: 1e9, step: 1e-7 })
+    );
+    act(() => result.current.increment());
+    expect(Number.isFinite(result.current.numberValue as number)).toBe(true);
+    expect(result.current.numberValue as number).toBeGreaterThan(1e9);
+  });
+
+  it("a sub-1e-15 step still registers (no precision-cap drop)", () => {
+    const { result } = renderHook(() =>
+      useNumberFieldState({ locale: "en-US", defaultValue: 0, step: 1e-20 })
+    );
+    act(() => result.current.increment());
+    // Must not round the step away to 0 — preciseAdd falls back to plain add.
+    expect(result.current.numberValue).toBe(1e-20);
+  });
+
+  it("treats step=0 as the default (still steps by 1)", () => {
+    const { result } = renderHook(() =>
+      useNumberFieldState({ locale: "en-US", defaultValue: 5, step: 0 })
+    );
+    act(() => result.current.increment());
+    expect(result.current.numberValue).toBe(6);
+  });
+
+  it("never emits NaN/Infinity for a non-finite step", () => {
+    const { result } = renderHook(() =>
+      useNumberFieldState({ locale: "en-US", defaultValue: 5, step: Number.NaN })
+    );
+    act(() => result.current.increment());
+    expect(result.current.numberValue).toBe(6); // NaN step → default 1
+  });
+
+  it("ignores non-finite min/max bounds instead of poisoning the value", () => {
+    const { result } = renderHook(() =>
+      useNumberFieldState({ locale: "en-US", minValue: Number.NaN, maxValue: Number.POSITIVE_INFINITY })
+    );
+    act(() => result.current.setInputValue("42"));
+    act(() => result.current.commit());
+    expect(result.current.numberValue).toBe(42);
+  });
+});

@@ -351,4 +351,21 @@ describe("NumberField.ScrubArea", () => {
     mock.simulateMouseMove(4, 0);
     expect(onChange).not.toHaveBeenCalled();
   });
+
+  it("exits pointer lock when the scrub area unmounts mid-scrub", () => {
+    setupPointerLockMock();
+    const { unmount } = render(
+      <NumberField.Root defaultValue={50}>
+        <NumberField.ScrubArea data-testid="scrub-area">Drag</NumberField.ScrubArea>
+        <NumberField.Input />
+      </NumberField.Root>
+    );
+    const scrubArea = screen.getByTestId("scrub-area");
+    fireEvent.pointerDown(scrubArea, { button: 0, bubbles: true });
+    expect(document.pointerLockElement).toBe(scrubArea);
+
+    unmount();
+    // Cleanup must release the lock so the user isn't stranded with a hidden cursor.
+    expect(document.exitPointerLock).toHaveBeenCalled();
+  });
 });

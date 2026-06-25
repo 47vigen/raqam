@@ -21,61 +21,38 @@ async function prependUseClient() {
   }
 }
 
-export default defineConfig([
-  // Core: server-safe, no React, no "use client" banner
-  {
-    entry: {
-      core: "src/core/index.ts",
-    },
-    format: ["cjs", "esm"],
-    dts: true,
-    clean: true,
-    sourcemap: true,
-    external: ["react", "react-dom"],
-    outExtension: ({ format }) => ({
-      js: format === "cjs" ? ".cjs" : ".js",
-    }),
-    treeshake: true,
-    splitting: false,
-    minify: true,
+// Single config with code-splitting so shared modules — the normalizer's
+// registerLocale registry and the React context — are emitted ONCE as a common
+// chunk imported by every entry, instead of each entry inlining its own copy.
+// Without this, `registerLocale` on one entry didn't affect parsers from another
+// and `NumberFieldContext` had a different identity per entry (ESM). (Code
+// splitting applies to the ESM output; the CJS output still inlines per entry.)
+export default defineConfig({
+  entry: {
+    index: "src/index.ts",
+    react: "src/react/index.ts",
+    // Core stays server-safe: it shares the universal chunk but never the React
+    // one, and the "use client" banner below is only added to index/react.
+    core: "src/core/index.ts",
+    "locales/fa": "src/locales/fa.ts",
+    "locales/ar": "src/locales/ar.ts",
+    "locales/bn": "src/locales/bn.ts",
+    "locales/hi": "src/locales/hi.ts",
+    "locales/th": "src/locales/th.ts",
+    "locales/index": "src/locales/index.ts",
   },
-  // React + index: client-only, gets "use client" prepended via onSuccess
-  {
-    entry: {
-      index: "src/index.ts",
-      react: "src/react/index.ts",
-    },
-    format: ["cjs", "esm"],
-    dts: true,
-    sourcemap: true,
-    external: ["react", "react-dom"],
-    outExtension: ({ format }) => ({
-      js: format === "cjs" ? ".cjs" : ".js",
-    }),
-    treeshake: true,
-    splitting: false,
-    minify: true,
-    async onSuccess() {
-      await prependUseClient();
-    },
+  format: ["cjs", "esm"],
+  dts: true,
+  clean: true,
+  sourcemap: true,
+  external: ["react", "react-dom"],
+  outExtension: ({ format }) => ({
+    js: format === "cjs" ? ".cjs" : ".js",
+  }),
+  treeshake: true,
+  splitting: true,
+  minify: true,
+  async onSuccess() {
+    await prependUseClient();
   },
-  // Locale plugins — separate entries for tree-shaking
-  {
-    entry: {
-      "locales/fa": "src/locales/fa.ts",
-      "locales/ar": "src/locales/ar.ts",
-      "locales/bn": "src/locales/bn.ts",
-      "locales/hi": "src/locales/hi.ts",
-      "locales/th": "src/locales/th.ts",
-      "locales/index": "src/locales/index.ts",
-    },
-    format: ["cjs", "esm"],
-    dts: true,
-    sourcemap: true,
-    external: ["react", "react-dom"],
-    outExtension: ({ format }) => ({
-      js: format === "cjs" ? ".cjs" : ".js",
-    }),
-    treeshake: true,
-  },
-]);
+});
