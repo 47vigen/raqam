@@ -237,4 +237,13 @@ describe("createParser — scientific notation", () => {
     // The well-formed form still parses.
     expect(p.parse("1e3").value).toBe(1000);
   });
+
+  it("parses an exponent with surrounding whitespace", () => {
+    const p = createParser({ locale: "en-US" });
+    expect(p.parse(" 1e3 ").value).toBe(1000);
+    expect(p.parse("\t1.5e-3\n").value).toBe(0.0015);
+    // Trimming is surrounding-only: a digit then a space then an "e"-word is NOT
+    // a malformed exponent — it strips to the leading number.
+    expect(p.parse("1.5 each").value).toBe(1.5);
+  });
 });

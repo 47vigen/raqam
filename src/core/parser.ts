@@ -146,13 +146,20 @@ export function createParser(opts: ParserOptions = {}): Parser {
       s = s.split("−").join("-");
     }
 
+    // Run the exponent checks on a copy with surrounding whitespace removed —
+    // the regexes are anchored, so " 1e3 " would otherwise miss and get its "E"
+    // char-stripped to "13". Only leading/trailing spaces are trimmed (not
+    // internal ones), so "1.5 each" stays a space-separated word, not "1.5each"
+    // (which would look like a malformed exponent).
+    const st = s.trim();
+
     // 7a. Preserve a clean trailing exponent (e.g. "1.234E3") so scientific
     // notation round-trips through parse(): the generic char-strip below would
     // delete the "E", gluing mantissa and exponent into a wrong finite value
     // ("1.234E3" -> "1.2343"). Returns early so the minus-collapse (step 8) does
     // not strip a negative exponent's sign. The mantissa carries at most one
     // leading "-", so no collapse is needed.
-    const sci = s.match(/^(-?(?:\d+(?:\.\d*)?|\.\d+))[eE]([+-]?\d+)$/);
+    const sci = st.match(/^(-?(?:\d+(?:\.\d*)?|\.\d+))[eE]([+-]?\d+)$/);
     if (sci) {
       return `${sci[1]}e${sci[2]}`;
     }
@@ -162,8 +169,8 @@ export function createParser(opts: ParserOptions = {}): Parser {
     // The strip below would silently delete the "e" and yield a wrong value (1),
     // so return the string with the marker intact — parse()'s exponent branch
     // then rejects it instead of mis-parsing.
-    if (/^[+-]?(?:\d+(?:\.\d*)?|\.\d+)[eE]/.test(s)) {
-      return s;
+    if (/^[+-]?(?:\d+(?:\.\d*)?|\.\d+)[eE]/.test(st)) {
+      return st;
     }
 
     // 7. Strip currency symbol, percent sign, spaces that Intl might prepend/append
