@@ -16,7 +16,7 @@
 | Truly headless | ✅ | ✅ | ❌ | ✅ |
 | i18n digit input (Persian ۱۲۳, Arabic ١٢٣…) | ❌ | ✅ | ❌ | ✅ |
 | WAI-ARIA spinbutton | ✅ | ✅✅ | ⚠️ | ✅✅ |
-| Bundle size | ~10 KB | ~30 KB | ~60 KB | **~1.8 KB core** |
+| Bundle size | ~10 KB | ~30 KB | ~60 KB | **~2.4 KB core** |
 
 No existing package combines all four. raqam does.
 
@@ -368,10 +368,10 @@ Measured min + brotli (including dependencies), enforced in CI via
 
 | Entry | Size | CI budget |
 |-------|------|-----------|
-| `raqam/core` | ~1.84 KB | 2 KB |
-| `raqam` (hooks + components) | ~8.3 KB | 12 KB |
-| `raqam/react` | ~8.1 KB | 10 KB |
-| `raqam/locales/fa` | 189 B | 0.3 KB |
+| `raqam/core` | ~2.37 KB | 2.5 KB |
+| `raqam` (hooks + components) | ~9.84 KB | 12 KB |
+| `raqam/react` | ~9.69 KB | 10 KB |
+| `raqam/locales/fa` | 196 B | 0.3 KB |
 
 ## 📄 License
 
