@@ -7,3 +7,18 @@ onlyBuiltDependencies:
   - es5-ext
   - esbuild
   - sharp
+
+# Known, unfixable dev-only advisories. None affect the published package
+# (raqam ships zero runtime dependencies); all are pinned by dev tooling that
+# has not yet released a patched version. Revisit when the parents update.
+#   vite      <- @playwright/experimental-ct-react (Playwright CT pins vite)
+#   fast-uri  <- @commitlint/cli > ajv
+#   ws        <- storybook
+auditConfig:
+  ignoreGhsas:
+    - GHSA-v2wj-q39q-566r # vite: server.fs.deny bypass (queries)
+    - GHSA-p9ff-h696-f583 # vite: arbitrary file read via dev server
+    - GHSA-fx2h-pf6j-xcff # vite: server.fs.deny bypass (Windows alt paths)
+    - GHSA-q3j6-qgpj-74h6 # fast-uri: path traversal
+    - GHSA-v39h-62p7-jpjc # fast-uri: host confusion
+    - GHSA-96hv-2xvq-fx4p # ws: DoS via memory exhaustion

@@ -12,9 +12,9 @@ import { usePressAndHold } from "./usePressAndHold.js";
 // ── Tiny helper to safely escape regex special chars (including hyphen) ──────
 
 function escapeRegex(s: string): string {
-  // Escaping hyphen prevents it from being misinterpreted as a range indicator
-  // inside a character class (e.g. [.--] would be invalid without this)
-  return s.replace(/[.*+?^${}()|[\]\\\-]/g, "\\$&");
+  // The hyphen is kept last in the character class so it reads as a literal
+  // rather than a range indicator, no escape needed.
+  return s.replace(/[.*+?^${}()|[\]\\-]/g, "\\$&");
 }
 
 /**

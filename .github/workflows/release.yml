@@ -16,27 +16,25 @@ jobs:
     name: Release
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
         with:
           fetch-depth: 0
 
       - uses: pnpm/action-setup@v4
-        with:
-          version: 10
 
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v5
         with:
-          node-version: 20
+          node-version-file: .nvmrc
           cache: pnpm
           registry-url: https://registry.npmjs.org
 
       - name: Install dependencies
-        run: pnpm install
+        run: pnpm install --frozen-lockfile
 
       - name: Build
         run: pnpm build
 
-      # OIDC trusted publishing requires npm >= 11.5.1; Node 20 ships an older npm.
+      # OIDC trusted publishing requires npm >= 11.5.1; the bundled npm is older.
       - name: Ensure npm supports OIDC trusted publishing
         run: npm install -g npm@latest
 
