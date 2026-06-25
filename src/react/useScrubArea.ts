@@ -140,6 +140,15 @@ export function useScrubArea(
       ) {
         document.exitPointerLock();
       }
+      // The pointerlockchange handler is already detached above, so its release
+      // path won't run. Reset the shared scrubbing state here so a still-mounted
+      // Root (e.g. when only the ScrubArea is conditionally unmounted) doesn't
+      // keep data-scrubbing / ScrubAreaCursor stuck on.
+      if (isScrubbingRef.current) {
+        isScrubbingRef.current = false;
+        accumulatorRef.current = 0;
+        stateRef.current.setIsScrubbing(false);
+      }
     };
   }, []); // Empty deps — truly stable refs, no need to re-register
 
