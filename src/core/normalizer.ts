@@ -10,6 +10,7 @@ const BUILTIN_DIGIT_BLOCKS: DigitBlock[] = [
   [0x0966, 0x096f], // Devanagari / Hindi (deva)
   [0x09e6, 0x09ef], // Bengali (beng)
   [0x0e50, 0x0e59], // Thai (thai)
+  [0xff10, 0xff19], // Fullwidth (CJK IMEs emit these in full-width mode)
 ];
 
 // Mutable registry — locale plugins can add blocks here

@@ -59,6 +59,12 @@ Options:
 | `interval` | `200` | Initial repeat interval; it accelerates down to a 50ms floor. |
 | `disabled` | `false` | Disables the handlers. |
 
+The returned handlers include `onPointerCancel` and `onLostPointerCapture` (in
+addition to `onPointerDown`/`onPointerUp`/`onPointerLeave`); spreading the whole
+object wires them all. The repeat loop also stops on its own the moment
+`disabled` flips to `true` mid-hold — important because a disabled `<button>`
+stops dispatching the pointer events that would otherwise clear it.
+
 ## `useScrubArea(state, options)`
 
 Pointer Lock powered drag-to-adjust behavior for custom scrub handles.
@@ -67,6 +73,7 @@ Pointer Lock powered drag-to-adjust behavior for custom scrub handles.
 const { scrubAreaProps, isScrubbing } = useScrubArea(state, {
   direction: "horizontal",
   pixelSensitivity: 4,
+  label: "Scrub to change value",
 });
 
 <span {...scrubAreaProps}>
@@ -79,7 +86,8 @@ Options:
 | Option | Default | Description |
 |--------|---------|-------------|
 | `direction` | `"horizontal"` | `"horizontal"`, `"vertical"`, or `"both"`. |
-| `pixelSensitivity` | `4` | Drag distance required for each step. |
+| `pixelSensitivity` | `4` | Drag distance required for each step. Values below 1 are clamped to 1px/step. |
+| `label` | `"Scrub to change value"` | Accessible label applied to `scrubAreaProps['aria-label']`. |
 
 Return value:
 
@@ -88,6 +96,12 @@ Return value:
 | `isScrubbing` | Whether pointer lock is active. |
 | `scrubAreaProps` | Props to spread onto the scrub handle element. |
 | `virtualCursor` | Pointer-lock cursor coordinates for custom overlays. |
+
+`scrubAreaProps` carries `role="slider"` plus the slider value ARIA —
+`aria-valuenow` (the current value), `aria-valuemin` / `aria-valuemax` (from the
+field's `minValue` / `maxValue`), `aria-valuetext` (the formatted display), and
+`aria-disabled` — so assistive tech announces the value and range and reflects
+arrow-key / drag updates. Spread the object as-is; don't drop these.
 
 ## `NumberFieldContext` / `useNumberFieldContext()`
 

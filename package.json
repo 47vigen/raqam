@@ -3,7 +3,12 @@
   "version": "0.3.2",
   "description": "The definitive React number input: live formatting, full i18n, headless, accessible",
   "type": "module",
-  "sideEffects": false,
+  "sideEffects": [
+    "./dist/locales/*.js",
+    "./dist/locales/*.cjs",
+    "./dist/chunk-*.js",
+    "./dist/chunk-*.cjs"
+  ],
   "main": "./dist/index.cjs",
   "module": "./dist/index.js",
   "types": "./dist/index.d.ts",
@@ -28,6 +33,9 @@
       ],
       "react": [
         "./dist/react.d.ts"
+      ],
+      "locales": [
+        "./dist/locales/index.d.ts"
       ],
       "locales/*": [
         "./dist/locales/*.d.ts"
@@ -66,6 +74,16 @@
       "require": {
         "types": "./dist/react.d.cts",
         "default": "./dist/react.cjs"
+      }
+    },
+    "./locales": {
+      "import": {
+        "types": "./dist/locales/index.d.ts",
+        "default": "./dist/locales/index.js"
+      },
+      "require": {
+        "types": "./dist/locales/index.d.cts",
+        "default": "./dist/locales/index.cjs"
       }
     },
     "./locales/*": {

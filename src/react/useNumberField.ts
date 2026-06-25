@@ -1,11 +1,12 @@
 "use client";
 
-import { useCallback, useEffect, useId, useLayoutEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useId, useMemo, useRef, useState } from "react";
 import { computeNewCursorPosition } from "../core/cursor.js";
-import { createFormatter } from "../core/formatter.js";
+import { createFormatter, resolveEffectiveFractions } from "../core/formatter.js";
 import { localizeDigits, normalizeDigits } from "../core/normalizer.js";
 import { createParser } from "../core/parser.js";
 import type { NumberFieldAria, NumberFieldState, UseNumberFieldProps } from "../core/types.js";
+import { useIsomorphicLayoutEffect } from "./useIsomorphicLayoutEffect.js";
 import { usePressAndHold } from "./usePressAndHold.js";
 
 // ── Tiny helper to safely escape regex special chars (including hyphen) ──────
@@ -17,18 +18,37 @@ function escapeRegex(s: string): string {
 }
 
 /**
+ * The focused element resolved through the node's *root* — `document` in the
+ * light DOM, or the containing `ShadowRoot` when the field is inside a shadow
+ * tree (where `document.activeElement` only reports the host). Falls back to
+ * `document.activeElement` when no node is available.
+ */
+function activeElementWithin(node: Element | null): Element | null {
+  const root = node?.getRootNode() as Document | ShadowRoot | undefined;
+  if (root && "activeElement" in root) return root.activeElement;
+  return typeof document !== "undefined" ? document.activeElement : null;
+}
+
+/**
  * Parse scientific ("1e3", "1.23E4") and compact ("1.5K", "3.4M") notation that
  * the plain locale parser cannot handle. Used on paste so values copied from
  * spreadsheets / dashboards round-trip instead of being mangled by char-strip.
  * Returns null when `s` is not one of these forms.
  */
 function parseSpecialNotation(s: string): number | null {
+  // Bound length before the regexes (this runs on attacker-controllable paste
+  // text). The patterns are also de-ambiguated below so they match in linear
+  // time — together this closes the ReDoS on the paste path.
+  if (s.length > 256) return null;
   const t = s.replace(/\s+/g, "");
-  if (/^[+-]?(?:\d+\.?\d*|\.\d+)[eE][+-]?\d+$/.test(t)) {
+  // Note the de-ambiguated mantissa `\d+(?:\.\d*)?|\.\d+` (no overlapping
+  // `\d+\.?\d*` alternation) — the old form backtracked quadratically on a long
+  // failing input.
+  if (/^[+-]?(?:\d+(?:\.\d*)?|\.\d+)[eE][+-]?\d+$/.test(t)) {
     const n = Number(t);
     return Number.isFinite(n) ? n : null;
   }
-  const m = t.match(/^([+-]?(?:\d+\.?\d*|\.\d+))(k|m|b|t|thousand|million|billion|trillion)$/i);
+  const m = t.match(/^([+-]?(?:\d+(?:\.\d*)?|\.\d+))(k|m|b|t|thousand|million|billion|trillion)$/i);
   if (m) {
     const mult: Record<string, number> = {
       k: 1e3,
@@ -54,8 +74,8 @@ export function useNumberField(
   const {
     locale,
     formatOptions,
-    minValue,
-    maxValue,
+    minValue: rawMinValue,
+    maxValue: rawMaxValue,
     allowNegative = true,
     allowDecimal = true,
     allowMouseWheel = false,
@@ -74,10 +94,18 @@ export function useNumberField(
     copyBehavior = "formatted",
     stepHoldDelay = 400,
     stepHoldInterval = 200,
+    incrementLabel = "Increase",
+    decrementLabel = "Decrease",
     formatValue: customFormatValue,
     parseValue: customParseValue,
     onValueCommitted,
   } = props; // formatValue/parseValue are on UseNumberFieldStateOptions (inherited)
+
+  // Drop non-finite bounds (mirrors useNumberFieldState) so aria-valuemin/max
+  // never render "NaN"/"Infinity" and out-of-range / Home / End never act on a
+  // bad bound.
+  const minValue = Number.isFinite(rawMinValue) ? rawMinValue : undefined;
+  const maxValue = Number.isFinite(rawMaxValue) ? rawMaxValue : undefined;
 
   // Compact/scientific/engineering notation produce formatted strings ("2.5K",
   // "1.5E3") whose suffix/exponent characters collide with continued typing, so
@@ -98,10 +126,14 @@ export function useNumberField(
   const errorId = `${inputId}-error`;
 
   // ── Formatter & parser (kept in sync with state's) ──────────────────────
-  // Mirror the state hook: drop fraction padding when decimals are disallowed.
-  const effMinFrac = allowDecimal ? minimumFractionDigits : 0;
-  const effMaxFrac = allowDecimal ? maximumFractionDigits : 0;
-  const effFixedScale = allowDecimal ? fixedDecimalScale : false;
+  // Same effective-fraction resolution as the state hook, via one shared helper,
+  // so the live-typing and on-commit displays can never drift apart.
+  const { effMinFrac, effMaxFrac, effFixedScale } = resolveEffectiveFractions({
+    allowDecimal,
+    minimumFractionDigits,
+    maximumFractionDigits,
+    fixedDecimalScale,
+  });
 
   const formatter = useMemo(
     () =>
@@ -195,12 +227,18 @@ export function useNumberField(
   // ── Cursor engine ────────────────────────────────────────────────────────
   const pendingCursor = useRef<number | null>(null);
 
+  // Stable handle to the latest state so listeners/effects that only *invoke*
+  // state methods don't have to list the (per-render fresh) `state` object as a
+  // dependency — keeps the native wheel listener from re-subscribing every render.
+  const stateRef = useRef(state);
+  stateRef.current = state;
+
   // Restore cursor synchronously after React commits the new value to DOM
-  useLayoutEffect(() => {
+  useIsomorphicLayoutEffect(() => {
     if (
       pendingCursor.current !== null &&
       inputRef.current &&
-      document.activeElement === inputRef.current
+      activeElementWithin(inputRef.current) === inputRef.current
     ) {
       inputRef.current.setSelectionRange(pendingCursor.current, pendingCursor.current);
       pendingCursor.current = null;
@@ -217,19 +255,20 @@ export function useNumberField(
 
     const handler = (e: WheelEvent) => {
       if (disabled || readOnly) return;
-      if (document.activeElement !== el) return;
+      if (activeElementWithin(el) !== el) return;
       e.preventDefault();
-      state._setLastChangeReason("wheel");
+      const s = stateRef.current;
+      s._setLastChangeReason("wheel");
       if (e.deltaY < 0) {
-        state.increment();
+        s.increment();
       } else {
-        state.decrement();
+        s.decrement();
       }
     };
 
     el.addEventListener("wheel", handler, { passive: false });
     return () => el.removeEventListener("wheel", handler);
-  }, [allowMouseWheel, disabled, readOnly, state, inputRef]);
+  }, [allowMouseWheel, disabled, readOnly, inputRef]);
 
   // ── IME Composition state ────────────────────────────────────────────────
   // During CJK IME input, partial composed characters must not trigger live
@@ -249,8 +288,14 @@ export function useNumberField(
       const normalized = normalizeDigits(composedValue);
 
       let displayValue: string;
+      // Thread the custom parser's value through to state — otherwise the state
+      // hook re-derives it with the BUILT-IN parser, discarding the custom result.
+      let composedKnownValue: number | null | undefined;
       if (customParseValue) {
         const result = customParseValue(normalized);
+        // Honor an explicit null too (a custom parser rejecting the composed
+        // text), so the built-in parser can't re-derive a value for it.
+        composedKnownValue = result.value;
         if (result.isIntermediate) {
           displayValue = normalized;
         } else if (result.value !== null && customFormatValue) {
@@ -287,7 +332,7 @@ export function useNumberField(
       }
 
       state._setLastChangeReason("input");
-      state.setInputValue(displayValue);
+      state.setInputValue(displayValue, composedKnownValue);
     },
     [formatter, liveFormatter, parser, liveFormat, state, customFormatValue, customParseValue]
   );
@@ -338,6 +383,11 @@ export function useNumberField(
       // Custom parse/format escape hatch
       if (customParseValue) {
         const result = customParseValue(normalized);
+        // Thread the custom parser's value through to state — including an
+        // explicit null (a custom parser that rejects input). Otherwise the
+        // state hook re-parses the display with the BUILT-IN parser and could
+        // emit a number the custom parser deliberately rejected.
+        knownValue = result.value;
         if (result.isIntermediate) {
           displayValue = normalized;
         } else if (result.value !== null) {
@@ -395,7 +445,7 @@ export function useNumberField(
           // Custom format: can't predict cursor, place at end
           pendingCursor.current = displayValue.length;
         } else {
-          // Compute and stash cursor position for useLayoutEffect
+          // Compute and stash cursor position for the isomorphic layout effect
           pendingCursor.current = computeNewCursorPosition(
             rawInputValue,
             cursorPos,
@@ -433,6 +483,10 @@ export function useNumberField(
       e.preventDefault();
       const text = e.clipboardData.getData("text/plain");
       if (!text) return;
+      // Discard absurdly long clipboard payloads up front — no legitimate number
+      // is this long, and it bounds every downstream scan/regex on this
+      // attacker-controllable input.
+      if (text.length > 1000) return;
 
       // 1. Strip common currency symbols (global currencies)
       const stripped = text.replace(/[€$£¥₹₺₽﷼฿₩¢₦₨₪₫₱]/g, "").trim();
@@ -840,6 +894,28 @@ export function useNumberField(
   const ariaLabelledBy =
     props["aria-labelledby"] ?? (props["aria-label"] ? undefined : hasLabel ? labelId : undefined);
 
+  // Mirror the label registration for the description so the input's
+  // aria-describedby points at <NumberField.Description> only while one is
+  // actually mounted — avoiding a dangling reference (the same class of bug fixed
+  // for aria-labelledby) when no description is rendered.
+  const descCountRef = useRef(0);
+  const [hasDescription, setHasDescription] = useState(false);
+  const descriptionRef = useCallback<React.RefCallback<HTMLElement>>((node) => {
+    if (node) {
+      descCountRef.current += 1;
+      setHasDescription(true);
+    } else if (descCountRef.current > 0) {
+      descCountRef.current -= 1;
+      if (descCountRef.current === 0) setHasDescription(false);
+    }
+  }, []);
+
+  // Combine the consumer's own aria-describedby with the internal description id
+  // (when present) so the description is announced by assistive technology.
+  const ariaDescribedBy =
+    [props["aria-describedby"], hasDescription ? descriptionId : null].filter(Boolean).join(" ") ||
+    undefined;
+
   const labelProps: NumberFieldAria["labelProps"] = {
     id: labelId,
     htmlFor: inputId,
@@ -861,7 +937,7 @@ export function useNumberField(
     spellCheck: false,
     "aria-label": props["aria-label"],
     "aria-labelledby": ariaLabelledBy,
-    "aria-describedby": props["aria-describedby"],
+    "aria-describedby": ariaDescribedBy,
     "aria-valuenow": state.numberValue ?? undefined,
     "aria-valuemin": minValue,
     "aria-valuemax": maxValue,
@@ -884,10 +960,12 @@ export function useNumberField(
     onCut: copyBehavior !== "formatted" ? handleCut : undefined,
     onCompositionStart: handleCompositionStart,
     onCompositionEnd: handleCompositionEnd,
-    // RTL: numbers are always LTR, align-right in RTL contexts
-    // unicodeBidi: embed isolates the LTR number from surrounding RTL text
+    // RTL: keep the number LTR and align it to the right in RTL contexts.
+    // unicodeBidi "plaintext" auto-detects each run's direction, so the digits
+    // stay LTR while an RTL suffix / Arabic currency name falls to its natural
+    // side ("embed" forced the whole field LTR, mis-ordering those affordances).
     style: localeInfo.isRTL
-      ? { direction: "ltr", textAlign: "right", unicodeBidi: "embed" }
+      ? { direction: "ltr", textAlign: "right", unicodeBidi: "plaintext" }
       : undefined,
     // Data attributes for CSS styling
     "data-disabled": disabled ? "" : undefined,
@@ -909,7 +987,7 @@ export function useNumberField(
   const incrementButtonProps: React.ButtonHTMLAttributes<HTMLButtonElement> = {
     type: "button",
     tabIndex: -1,
-    "aria-label": "Increase",
+    "aria-label": incrementLabel,
     disabled: disabled || !state.canIncrement,
     // Press-and-hold handlers replace simple onClick
     ...incrementHold,
@@ -919,15 +997,16 @@ export function useNumberField(
   const decrementButtonProps: React.ButtonHTMLAttributes<HTMLButtonElement> = {
     type: "button",
     tabIndex: -1,
-    "aria-label": "Decrease",
+    "aria-label": decrementLabel,
     disabled: disabled || !state.canDecrement,
     // Press-and-hold handlers replace simple onClick
     ...decrementHold,
     "data-disabled": disabled || !state.canDecrement ? "" : undefined,
   } as React.ButtonHTMLAttributes<HTMLButtonElement>;
 
-  const descriptionProps: React.HTMLAttributes<HTMLElement> = {
+  const descriptionProps: NumberFieldAria["descriptionProps"] = {
     id: descriptionId,
+    ref: descriptionRef,
   };
 
   const errorMessageProps: React.HTMLAttributes<HTMLElement> = {

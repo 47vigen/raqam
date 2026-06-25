@@ -16,7 +16,7 @@
 | Truly headless | ✅ | ✅ | ❌ | ✅ |
 | i18n digit input (Persian ۱۲۳, Arabic ١٢٣…) | ❌ | ✅ | ❌ | ✅ |
 | WAI-ARIA spinbutton | ✅ | ✅✅ | ⚠️ | ✅✅ |
-| Bundle size | ~10 KB | ~30 KB | ~60 KB | **~1.8 KB core** |
+| Bundle size | ~10 KB | ~30 KB | ~60 KB | **~2.4 KB core** |
 
 No existing package combines all four. raqam does.
 
@@ -166,6 +166,20 @@ const formatter = createFormatter({
 const displayPrice = formatter.format(1234.56)  // "$1,234.56"
 ```
 
+### SSR / hydration notes
+
+- **Pin `locale` for SSR.** With no `locale`, formatting uses the runtime
+  default — the browser locale on the client but the host's ICU/OS locale on the
+  server. If they differ, the server-rendered value won't match the first client
+  render and React logs a hydration mismatch. Pass an explicit `locale` (the same
+  on both sides) whenever you server-render an initial value.
+- **Label/description ARIA wires up after mount.** `<NumberField.Label>` is
+  associated with the input via the native `htmlFor`/`id` in the SSR HTML
+  (screen readers honor it), but the redundant `aria-labelledby` (and
+  `aria-describedby` for `<NumberField.Description>`) are attached on the client
+  after the label/description registers — they appear post-hydration, not in the
+  static HTML.
+
 ## 🖱️ ScrubArea (drag to change value)
 
 ```tsx
@@ -228,8 +242,10 @@ For financial apps that need to avoid IEEE 754 float rounding:
 ```tsx
 <NumberField.Root
   onRawChange={(rawValue) => {
-    // rawValue is the exact string before any JS float conversion
-    // e.g. "0.1000000001" — feed it to your BigDecimal library
+    // rawValue is the unformatted, precision-preserving numeric string
+    // (grouping / currency / prefix / suffix stripped, locale decimal
+    // normalized to ".", typed trailing zeros kept) — full precision beyond
+    // JS float. e.g. "0.1000000001" — feed it to your BigDecimal library
     myDecimal.set(rawValue)
   }}
 />
@@ -352,10 +368,10 @@ Measured min + brotli (including dependencies), enforced in CI via
 
 | Entry | Size | CI budget |
 |-------|------|-----------|
-| `raqam/core` | ~1.84 KB | 2 KB |
-| `raqam` (hooks + components) | ~8.3 KB | 12 KB |
-| `raqam/react` | ~8.1 KB | 10 KB |
-| `raqam/locales/fa` | 189 B | 0.3 KB |
+| `raqam/core` | ~2.37 KB | 2.5 KB |
+| `raqam` (hooks + components) | ~9.84 KB | 12 KB |
+| `raqam/react` | ~9.69 KB | 10 KB |
+| `raqam/locales/fa` | 196 B | 0.3 KB |
 
 ## 📄 License
 

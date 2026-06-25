@@ -15,6 +15,8 @@ export interface PressAndHoldProps {
   onPointerDown: (e: React.PointerEvent) => void;
   onPointerUp: (e: React.PointerEvent) => void;
   onPointerLeave: (e: React.PointerEvent) => void;
+  onPointerCancel: (e: React.PointerEvent) => void;
+  onLostPointerCapture: (e: React.PointerEvent) => void;
 }
 
 /**
@@ -48,6 +50,14 @@ export function usePressAndHold(
     intervalRef.current = interval;
   });
 
+  // Track disabled in a ref so an in-flight repeat loop can stop the instant the
+  // control becomes disabled (e.g. the value hits min/max) — a disabled <button>
+  // stops dispatching the pointerup/leave that would normally clear the timer.
+  const disabledRef = useRef(disabled);
+  useEffect(() => {
+    disabledRef.current = disabled;
+  });
+
   // Timer handle refs (null = no active timer)
   const delayTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const repeatTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -66,14 +76,20 @@ export function usePressAndHold(
   }, []);
 
   // Recursive accelerating repeat
-  const scheduleRepeat = useCallback((currentInterval: number) => {
-    if (!isHeldRef.current) return;
-    callbackRef.current();
-    const nextInterval = Math.max(50, Math.floor(currentInterval / 2));
-    repeatTimerRef.current = setTimeout(() => {
-      scheduleRepeat(nextInterval);
-    }, currentInterval);
-  }, []);
+  const scheduleRepeat = useCallback(
+    (currentInterval: number) => {
+      if (!isHeldRef.current || disabledRef.current) {
+        clearTimers();
+        return;
+      }
+      callbackRef.current();
+      const nextInterval = Math.max(50, Math.floor(currentInterval / 2));
+      repeatTimerRef.current = setTimeout(() => {
+        scheduleRepeat(nextInterval);
+      }, currentInterval);
+    },
+    [clearTimers]
+  );
 
   const onPointerDown = useCallback(
     (e: React.PointerEvent) => {
@@ -109,8 +125,32 @@ export function usePressAndHold(
     [clearTimers]
   );
 
+  // Touch interruptions (scroll/gesture) and pointer-capture loss must also stop
+  // the repeat — otherwise the timer keeps firing with no release event.
+  const onPointerCancel = useCallback(
+    (e: React.PointerEvent) => {
+      void e;
+      clearTimers();
+    },
+    [clearTimers]
+  );
+
+  const onLostPointerCapture = useCallback(
+    (e: React.PointerEvent) => {
+      void e;
+      clearTimers();
+    },
+    [clearTimers]
+  );
+
+  // Stop an in-flight repeat as soon as the control becomes disabled — a disabled
+  // <button> no longer fires pointerup/leave, so the loop would otherwise run on.
+  useEffect(() => {
+    if (disabled) clearTimers();
+  }, [disabled, clearTimers]);
+
   // Safety: clear on unmount
   useEffect(() => clearTimers, [clearTimers]);
 
-  return { onPointerDown, onPointerUp, onPointerLeave };
+  return { onPointerDown, onPointerUp, onPointerLeave, onPointerCancel, onLostPointerCapture };
 }

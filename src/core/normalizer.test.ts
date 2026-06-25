@@ -1,5 +1,6 @@
 import { describe, it, expect } from "vitest";
 import { normalizeDigits, isNonLatinDigit, registerLocale } from "./normalizer.js";
+import { createParser } from "./parser.js";
 
 describe("normalizeDigits", () => {
   it("passes ASCII digits through unchanged", () => {
@@ -48,6 +49,11 @@ describe("normalizeDigits", () => {
   it("handles mixed Persian and ASCII", () => {
     expect(normalizeDigits("۱2۳")).toBe("123");
   });
+
+  it("converts fullwidth CJK digits", () => {
+    // U+FF11 U+FF12 U+FF13 — fullwidth one/two/three
+    expect(normalizeDigits("１２３")).toBe("123");
+  });
 });
 
 describe("isNonLatinDigit", () => {
@@ -67,6 +73,16 @@ describe("isNonLatinDigit", () => {
   it("returns false for letters", () => {
     expect(isNonLatinDigit("a")).toBe(false);
     expect(isNonLatinDigit("ض")).toBe(false);
+  });
+
+  it("returns true for fullwidth CJK digit", () => {
+    expect(isNonLatinDigit("５")).toBe(true);
+  });
+});
+
+describe("fullwidth CJK digits — parsing", () => {
+  it("parses a ja-JP fullwidth digit string", () => {
+    expect(createParser({ locale: "ja-JP" }).parse("１２３").value).toBe(123);
   });
 });
 

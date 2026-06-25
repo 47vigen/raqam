@@ -448,13 +448,53 @@ describe("rawValue (arbitrary precision)", () => {
     expect(result.current.rawValue).toBe("1234.56");
   });
 
-  it("fires onRawChange with input string (not formatted)", () => {
+  it("fires onRawChange with the unformatted string (grouping stripped)", () => {
     const onRaw = vi.fn();
     const { result } = renderHook(() =>
       useNumberFieldState({ locale: "en-US", onRawChange: onRaw })
     );
     act(() => result.current.setInputValue("1,234.56"));
-    expect(onRaw).toHaveBeenCalledWith("1,234.56");
+    expect(onRaw).toHaveBeenCalledWith("1234.56");
+    expect(result.current.rawValue).toBe("1234.56");
+  });
+
+  it("strips currency/grouping affordances from rawValue, preserving precision", () => {
+    const onRaw = vi.fn();
+    const { result } = renderHook(() =>
+      useNumberFieldState({
+        locale: "en-US",
+        formatOptions: { style: "currency", currency: "USD" },
+        onRawChange: onRaw,
+      })
+    );
+    // Trailing zero must survive (precision-preserving), affordances must not.
+    act(() => result.current.setInputValue("$1,234.50"));
+    expect(result.current.rawValue).toBe("1234.50");
+    expect(onRaw).toHaveBeenCalledWith("1234.50");
+  });
+
+  it("emits the value-based rawValue for percent (strip is not the parse inverse)", () => {
+    // "50%" parses to 0.5 but strips to "50"; rawValue must denote the value
+    // (0.5), staying consistent with the defaultValue/setNumberValue paths.
+    const onRaw = vi.fn();
+    const { result } = renderHook(() =>
+      useNumberFieldState({ locale: "en-US", formatOptions: { style: "percent" }, onRawChange: onRaw })
+    );
+    act(() => result.current.setInputValue("50%"));
+    expect(result.current.rawValue).toBe("0.5");
+    expect(onRaw).toHaveBeenLastCalledWith("0.5");
+  });
+
+  it("never surfaces a '-0' rawValue", () => {
+    const { result } = renderHook(() => useNumberFieldState({ locale: "en-US" }));
+    act(() => result.current.setInputValue("-0"));
+    expect(result.current.rawValue).toBe("0");
+  });
+
+  it("preserves precision beyond float in rawValue", () => {
+    const { result } = renderHook(() => useNumberFieldState({ locale: "en-US" }));
+    act(() => result.current.setInputValue("0.12345678901234567"));
+    expect(result.current.rawValue).toBe("0.12345678901234567");
   });
 
   it("fires onRawChange with null when cleared", () => {
@@ -499,5 +539,84 @@ describe("isFocused state", () => {
     act(() => result.current.setIsFocused(true));
     act(() => result.current.setIsFocused(false));
     expect(result.current.isFocused).toBe(false);
+  });
+});
+
+describe("useNumberFieldState — numeric & config robustness", () => {
+  it("increment never moves backward near MAX_SAFE_INTEGER", () => {
+    const base = Number.MAX_SAFE_INTEGER;
+    const { result } = renderHook(() =>
+      useNumberFieldState({ locale: "en-US", defaultValue: base, step: 0.1 })
+    );
+    act(() => result.current.increment());
+    expect(result.current.numberValue).not.toBeNull();
+    expect(Number.isFinite(result.current.numberValue as number)).toBe(true);
+    expect(result.current.numberValue as number).toBeGreaterThanOrEqual(base);
+  });
+
+  it("increment with a tiny step stays finite and moves up", () => {
+    const { result } = renderHook(() =>
+      useNumberFieldState({ locale: "en-US", defaultValue: 1e9, step: 1e-7 })
+    );
+    act(() => result.current.increment());
+    expect(Number.isFinite(result.current.numberValue as number)).toBe(true);
+    expect(result.current.numberValue as number).toBeGreaterThan(1e9);
+  });
+
+  it("a sub-1e-15 step still registers (no precision-cap drop)", () => {
+    const { result } = renderHook(() =>
+      useNumberFieldState({ locale: "en-US", defaultValue: 0, step: 1e-20 })
+    );
+    act(() => result.current.increment());
+    // Must not round the step away to 0 — preciseAdd falls back to plain add.
+    expect(result.current.numberValue).toBe(1e-20);
+  });
+
+  it("treats step=0 as the default (still steps by 1)", () => {
+    const { result } = renderHook(() =>
+      useNumberFieldState({ locale: "en-US", defaultValue: 5, step: 0 })
+    );
+    act(() => result.current.increment());
+    expect(result.current.numberValue).toBe(6);
+  });
+
+  it("never emits NaN/Infinity for a non-finite step", () => {
+    const { result } = renderHook(() =>
+      useNumberFieldState({ locale: "en-US", defaultValue: 5, step: Number.NaN })
+    );
+    act(() => result.current.increment());
+    expect(result.current.numberValue).toBe(6); // NaN step → default 1
+  });
+
+  it("ignores non-finite min/max bounds instead of poisoning the value", () => {
+    const { result } = renderHook(() =>
+      useNumberFieldState({ locale: "en-US", minValue: Number.NaN, maxValue: Number.POSITIVE_INFINITY })
+    );
+    act(() => result.current.setInputValue("42"));
+    act(() => result.current.commit());
+    expect(result.current.numberValue).toBe(42);
+  });
+
+  it("commit treats a non-finite controlled value as empty (never emits NaN/Infinity)", () => {
+    const onChange = vi.fn();
+    const { result } = renderHook(() =>
+      useNumberFieldState({ locale: "en-US", value: Number.NaN, onChange })
+    );
+    let committed: number | null = 0;
+    act(() => {
+      committed = result.current.commit();
+    });
+    expect(committed).toBeNull();
+    for (const [emitted] of onChange.mock.calls) {
+      if (emitted !== null) expect(Number.isFinite(emitted)).toBe(true);
+    }
+  });
+
+  it("exposes sanitized bounds on state.options (consumers don't see NaN/Infinity)", () => {
+    const { result } = renderHook(() =>
+      useNumberFieldState({ locale: "en-US", minValue: Number.NaN, maxValue: Number.POSITIVE_INFINITY })
+    );
+    expect(result.current.options.minValue).toBeUndefined();
+    expect(result.current.options.maxValue).toBeUndefined();
   });
 });

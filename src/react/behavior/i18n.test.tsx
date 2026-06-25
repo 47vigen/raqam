@@ -1,5 +1,6 @@
 import { describe, it, expect } from "vitest";
 import { render, screen } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
 import { type, renderField, norm } from "../../test-utils.js";
 // Native-digit locales must register their digit blocks before use.
 import "../../locales/fa.js";
@@ -175,5 +176,53 @@ describe("i18n: switching locale reformats an idle value", () => {
   it("mounting 1234 in de-DE formats with period grouping", () => {
     const de = renderField({ locale: "de-DE", defaultValue: 1234 });
     expect(norm(de.display())).toBe("1.234");
+  });
+});
+
+// ── Runtime locale switch on a CONTROLLED value, focus-aware ──────────────────
+
+describe("i18n: controlled value + runtime locale change", () => {
+  function Controlled({ locale, value }: { locale: string; value: number }) {
+    return (
+      <NumberField.Root locale={locale} value={value}>
+        <NumberField.Input data-testid="ctrl-input" />
+      </NumberField.Root>
+    );
+  }
+
+  it("does NOT reformat the in-progress display when the locale changes while FOCUSED", async () => {
+    const user = userEvent.setup();
+    const { rerender } = render(<Controlled locale="en-US" value={1234} />);
+    const input = screen.getByTestId("ctrl-input") as HTMLInputElement;
+    // Idle en-US display.
+    expect(norm(input.value)).toBe("1,234");
+
+    // Focus and make a partial, in-progress edit so the display is mid-edit.
+    await user.click(input);
+    input.setSelectionRange(input.value.length, input.value.length);
+    await user.type(input, "5", {
+      initialSelectionStart: input.value.length,
+      initialSelectionEnd: input.value.length,
+    });
+    const midEdit = input.value;
+    // The in-progress edit must carry the new digit (en-US grouping).
+    expect(norm(midEdit)).toBe("12,345");
+
+    // Switch locale WHILE STILL FOCUSED — the `!isFocused` guard must hold, so
+    // the in-progress display is preserved verbatim (no de-DE re-grouping).
+    rerender(<Controlled locale="de-DE" value={1234} />);
+    expect(input.value).toBe(midEdit);
+    expect(document.activeElement).toBe(input);
+  });
+
+  it("reformats a controlled value to the new locale grouping when IDLE", () => {
+    const { rerender } = render(<Controlled locale="en-US" value={1234} />);
+    const input = screen.getByTestId("ctrl-input") as HTMLInputElement;
+    // en-US comma grouping.
+    expect(norm(input.value)).toBe("1,234");
+
+    // Not focused: a locale change reformats the same controlled value.
+    rerender(<Controlled locale="de-DE" value={1234} />);
+    expect(norm(input.value)).toBe("1.234");
   });
 });

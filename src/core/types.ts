@@ -55,7 +55,13 @@ export interface UseNumberFieldStateOptions {
   defaultValue?: number | null;
   /** Fires on every meaningful value change */
   onChange?: (value: number | null) => void;
-  /** BCP 47 locale tag (default: browser locale) */
+  /**
+   * BCP 47 locale tag. When omitted, the runtime default is used — the browser
+   * locale on the client, but the host's ICU/OS locale on the server. For SSR,
+   * pass an explicit `locale` so the server and first client render format
+   * identically; otherwise the initial formatted value can differ and trigger a
+   * React hydration mismatch.
+   */
   locale?: string;
   /** Full Intl.NumberFormatOptions — currency, percent, decimal, etc. */
   formatOptions?: Intl.NumberFormatOptions;
@@ -159,6 +165,13 @@ export interface NumberFieldState {
   /** Internal: read the current change reason (used by NumberField.Root) */
   _getLastChangeReason: () => ChangeReason;
   /**
+   * Internal: read the display string that matches the value most recently
+   * emitted via onChange. Updated synchronously before the state setter, so it is
+   * accurate at onChange time (unlike `inputValue`, which still reflects the
+   * previous render). Used by NumberField.Root to report `formattedValue`.
+   */
+  _getLatestDisplay: () => string;
+  /**
    * Update display string (triggers parse + onChange). `knownValue` overrides
    * the parsed value when `val` is a formatted string that cannot be reversed
    * (compact "2.5K", scientific, unit notation).
@@ -217,6 +230,10 @@ export interface UseNumberFieldProps extends UseNumberFieldStateOptions {
   stepHoldDelay?: number;
   /** Initial milliseconds between repeats during press-and-hold (default: 200) */
   stepHoldInterval?: number;
+  /** Accessible label for the increment button (default: "Increase") */
+  incrementLabel?: string;
+  /** Accessible label for the decrement button (default: "Decrease") */
+  decrementLabel?: string;
   onFocus?: (e: React.FocusEvent<HTMLInputElement>) => void;
   onBlur?: (e: React.FocusEvent<HTMLInputElement>) => void;
   /**
@@ -245,7 +262,14 @@ export interface NumberFieldAria {
   hiddenInputProps: React.InputHTMLAttributes<HTMLInputElement> | null;
   incrementButtonProps: React.ButtonHTMLAttributes<HTMLButtonElement>;
   decrementButtonProps: React.ButtonHTMLAttributes<HTMLButtonElement>;
-  descriptionProps: React.HTMLAttributes<HTMLElement>;
+  descriptionProps: React.HTMLAttributes<HTMLElement> & {
+    /**
+     * Registration ref — spread it onto the rendered description element so the
+     * input's `aria-describedby` only points here while a description is mounted
+     * (mirrors `labelProps.ref`, avoiding a dangling reference otherwise).
+     */
+    ref?: React.RefCallback<HTMLElement>;
+  };
   errorMessageProps: React.HTMLAttributes<HTMLElement>;
 }
 
@@ -259,8 +283,14 @@ export interface ScrubAreaOptions {
    * - 'both': uses whichever axis has greater movement
    */
   direction?: "horizontal" | "vertical" | "both";
-  /** Pixels of drag movement required for one step (default: 4) */
+  /**
+   * Pixels of drag movement required for one step (default: 4). Values below 1
+   * are clamped to 1 to keep stepping bounded (0 or negative would otherwise
+   * loop forever).
+   */
   pixelSensitivity?: number;
+  /** Accessible label for the scrub area (default: "Scrub to change value") */
+  label?: string;
 }
 
 // ── Component API ─────────────────────────────────────────────────────────────

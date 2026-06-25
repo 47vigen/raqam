@@ -1,39 +1,62 @@
 import { useCallback, useRef, useState } from "react";
 
+// Locally declared so the dev-only gate type-checks without @types/node.
+declare const process: { env?: Record<string, string | undefined> } | undefined;
+
+// Bundlers statically replace `process.env.NODE_ENV`, so the controlled/
+// uncontrolled warning below is dropped from production builds. Falls back to
+// "not production" when `process` is absent (raw-browser ESM), where surfacing a
+// dev-style warning is acceptable.
+const IS_PRODUCTION =
+  typeof process !== "undefined" &&
+  typeof process.env !== "undefined" &&
+  process.env.NODE_ENV === "production";
+
 interface UseControllableStateOptions<T> {
   value?: T;
   defaultValue?: T;
   onChange?: (value: T) => void;
 }
 
+type ControllableSetter<T> = (next: T | ((prev: T | undefined) => T)) => void;
+
 /**
  * Manages controlled vs uncontrolled state.
  * - If `value` is provided, the component is controlled.
  * - Otherwise it manages its own state starting from `defaultValue`.
  * Warns in dev mode if the component switches between controlled/uncontrolled.
+ *
+ * Overloads narrow the returned value to `T` (no `| undefined`) when a `value`
+ * or `defaultValue` is supplied, so callers that guarantee one don't have to
+ * null-check the result.
  */
+export function useControllableState<T>(options: {
+  value: T;
+  defaultValue?: T;
+  onChange?: (value: T) => void;
+}): [T, ControllableSetter<T>];
+export function useControllableState<T>(options: {
+  value?: T;
+  defaultValue: T;
+  onChange?: (value: T) => void;
+}): [T, ControllableSetter<T>];
+export function useControllableState<T>(
+  options: UseControllableStateOptions<T>
+): [T | undefined, ControllableSetter<T>];
 export function useControllableState<T>({
   value,
   defaultValue,
   onChange,
-}: UseControllableStateOptions<T>): [
-  T | undefined,
-  (next: T | ((prev: T | undefined) => T)) => void,
-] {
+}: UseControllableStateOptions<T>): [T | undefined, ControllableSetter<T>] {
   const isControlled = value !== undefined;
   const wasControlled = useRef(isControlled);
 
-  if (
-    typeof window !== "undefined" &&
-    (window as unknown as { __DEV__?: boolean }).__DEV__ !== false
-  ) {
-    if (wasControlled.current !== isControlled) {
-      console.warn(
-        `[raqam] Component is changing from ${
-          wasControlled.current ? "controlled" : "uncontrolled"
-        } to ${isControlled ? "controlled" : "uncontrolled"}. Decide between using a controlled or uncontrolled component and don't switch.`
-      );
-    }
+  if (!IS_PRODUCTION && wasControlled.current !== isControlled) {
+    console.warn(
+      `[raqam] Component is changing from ${
+        wasControlled.current ? "controlled" : "uncontrolled"
+      } to ${isControlled ? "controlled" : "uncontrolled"}. Decide between using a controlled or uncontrolled component and don't switch.`
+    );
   }
 
   const [internalValue, setInternalValue] = useState<T | undefined>(defaultValue);

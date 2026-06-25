@@ -73,6 +73,7 @@ Returned API:
 | `parse(input)` | Returns `{ value, isValid, isIntermediate }`. |
 | `isIntermediate(input)` | Detects incomplete-but-valid editing states like `"-"` or `"1."`. |
 | `getLocaleInfo()` | Returns locale metadata used by the parser. |
+| `strip(input)` | Strips formatting affordances (grouping separators, currency symbol, prefix/suffix, percent sign) from `input`, returning the bare numeric string (ASCII digits, optional leading `-`, at most one `.`). Typed trailing zeros are preserved. Returns `string`. |
 
 ## `normalizeDigits(input)`
 
@@ -92,15 +93,19 @@ logic.
 Add support for another digit block.
 
 ```ts
+// Gujarati digits ૦–૯ (U+0AE6–U+0AEF) — not a built-in block.
 registerLocale({
-  digitBlocks: [[0xff10, 0xff19]],
+  digitBlocks: [[0x0ae6, 0x0aef]],
 });
 
-normalizeDigits("１２３");
+normalizeDigits("૧૨૩");
 // "123"
 ```
 
-Use this only for scripts not already covered by the built-in locale plugins.
+Use this only for scripts not already covered by the built-ins. The built-in
+blocks are Arabic-Indic, Extended Arabic-Indic (Persian), Devanagari, Bengali,
+Thai, and fullwidth (U+FF10–U+FF19, emitted by full-width CJK IMEs) — these are
+normalized out of the box, no `registerLocale` needed.
 For Persian, Arabic, Hindi, Bengali, and Thai, prefer the ready-made modules in
 `raqam/locales/*`.
 

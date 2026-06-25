@@ -151,6 +151,55 @@ describe("usePressAndHold", () => {
     expect(cb).toHaveBeenCalledTimes(2);
   });
 
+  it("stops repeating when disabled mid-hold (no pointerUp)", () => {
+    const cb = vi.fn();
+    const { result, rerender } = renderHook(
+      ({ disabled }: { disabled: boolean }) =>
+        usePressAndHold(cb, { delay: 400, interval: 200, disabled }),
+      { initialProps: { disabled: false } }
+    );
+
+    act(() => {
+      result.current.onPointerDown(makePointerEvent());
+    });
+
+    // immediate fire + first repeat at the 400ms delay → count = 2
+    act(() => { vi.advanceTimersByTime(400); });
+    expect(cb).toHaveBeenCalledTimes(2);
+
+    // Become disabled mid-hold WITHOUT a pointerUp/leave to clear the timer.
+    act(() => {
+      rerender({ disabled: true });
+    });
+
+    const callsAtDisable = cb.mock.calls.length;
+
+    // The runaway loop must have stopped — no further fires no matter how long.
+    act(() => { vi.advanceTimersByTime(5000); });
+    expect(cb).toHaveBeenCalledTimes(callsAtDisable);
+  });
+
+  it("stops repeating on pointerCancel", () => {
+    const cb = vi.fn();
+    const { result } = renderHook(() =>
+      usePressAndHold(cb, { delay: 400, interval: 200 })
+    );
+
+    act(() => {
+      result.current.onPointerDown(makePointerEvent());
+    });
+
+    act(() => { vi.advanceTimersByTime(400); });
+    expect(cb).toHaveBeenCalledTimes(2);
+
+    act(() => {
+      result.current.onPointerCancel(makePointerEvent());
+    });
+
+    act(() => { vi.advanceTimersByTime(2000); });
+    expect(cb).toHaveBeenCalledTimes(2);
+  });
+
   it("cancels pending timers on unmount", () => {
     const cb = vi.fn();
     const { result, unmount } = renderHook(() =>

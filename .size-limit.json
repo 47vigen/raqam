@@ -2,7 +2,7 @@
   {
     "name": "raqam/core",
     "path": "dist/core.js",
-    "limit": "2 KB"
+    "limit": "2.5 KB"
   },
   {
     "name": "raqam (full)",

@@ -2,10 +2,34 @@ import type { FormatResult, LocaleInfo } from "./types.js";
 
 // ── Internal ──────────────────────────────────────────────────────────────────
 
+// Locally declared so the dev-only gate type-checks without @types/node.
+declare const process: { env?: Record<string, string | undefined> } | undefined;
+const IS_PRODUCTION =
+  typeof process !== "undefined" &&
+  typeof process.env !== "undefined" &&
+  process.env.NODE_ENV === "production";
+
+let warnedInvalidOptions = false;
+/** Warn once (dev only) when invalid formatOptions/locale force a fallback. */
+function warnInvalidFormatOptions(err: unknown): void {
+  if (IS_PRODUCTION || warnedInvalidOptions) return;
+  warnedInvalidOptions = true;
+  const detail = err instanceof Error ? err.message : String(err);
+  console.warn(
+    `[raqam] Invalid formatOptions/locale — falling back to a safe formatter. Check your \`locale\` and \`formatOptions\` (e.g. style:'currency' requires a \`currency\` code). Original error: ${detail}`
+  );
+}
+
 /** Probe value that will surface decimal AND grouping parts */
 const PROBE_VALUE = 12345.6;
 
-/** Cache key = locale + JSON.stringify(options) */
+/**
+ * LRU cache of Intl.NumberFormat instances, keyed by locale + JSON.stringify
+ * (options). Bounded so apps that vary formatOptions at high cardinality —
+ * per-row currencies in a large table, per-keystroke fraction-digit changes —
+ * don't grow it without limit for the process lifetime.
+ */
+const FORMATTER_CACHE_MAX = 256;
 const formatterCache = new Map<string, Intl.NumberFormat>();
 
 function getFormatter(
@@ -13,10 +37,33 @@ function getFormatter(
   options: Intl.NumberFormatOptions | undefined
 ): Intl.NumberFormat {
   const key = `${locale ?? ""}::${JSON.stringify(options ?? {})}`;
-  let fmt = formatterCache.get(key);
-  if (!fmt) {
+  const cached = formatterCache.get(key);
+  if (cached) {
+    // Mark most-recently-used by re-inserting at the end of the Map's order.
+    formatterCache.delete(key);
+    formatterCache.set(key, cached);
+    return cached;
+  }
+  // Invalid options/locale (e.g. style:"currency" without `currency`,
+  // maximumFractionDigits out of range, a bad BCP-47 tag) make the constructor
+  // throw. Don't let that crash the render/SSR tree — fall back to a safe
+  // formatter (drop the offending options, then the locale) and warn in dev.
+  let fmt: Intl.NumberFormat;
+  try {
     fmt = new Intl.NumberFormat(locale, options);
-    formatterCache.set(key, fmt);
+  } catch (err) {
+    warnInvalidFormatOptions(err);
+    try {
+      fmt = new Intl.NumberFormat(locale);
+    } catch {
+      fmt = new Intl.NumberFormat();
+    }
+  }
+  formatterCache.set(key, fmt);
+  // Evict the least-recently-used entry (the first key) when over capacity.
+  if (formatterCache.size > FORMATTER_CACHE_MAX) {
+    const oldest = formatterCache.keys().next().value;
+    if (oldest !== undefined) formatterCache.delete(oldest);
   }
   return fmt;
 }
@@ -65,6 +112,31 @@ function extractLocaleInfo(
   const isRTL = rtlLocales.test(resolvedLocale);
 
   return { decimalSeparator, groupingSeparator, minusSign, zero, isRTL };
+}
+
+/**
+ * Resolve the effective fraction-digit settings for a field. When decimals are
+ * disallowed, fraction padding/scale is forced to 0 so currency /
+ * fixedDecimalScale never pad ".00" (which the dot-strip would then re-read,
+ * exploding the value). Shared by useNumberFieldState and useNumberField so the
+ * editable display and the on-commit display stay in lockstep.
+ */
+export function resolveEffectiveFractions(opts: {
+  allowDecimal?: boolean;
+  minimumFractionDigits?: number;
+  maximumFractionDigits?: number;
+  fixedDecimalScale?: boolean;
+}): {
+  effMinFrac: number | undefined;
+  effMaxFrac: number | undefined;
+  effFixedScale: boolean | undefined;
+} {
+  const allowDecimal = opts.allowDecimal ?? true;
+  return {
+    effMinFrac: allowDecimal ? opts.minimumFractionDigits : 0,
+    effMaxFrac: allowDecimal ? opts.maximumFractionDigits : 0,
+    effFixedScale: allowDecimal ? opts.fixedDecimalScale : false,
+  };
 }
 
 // ── Factory ───────────────────────────────────────────────────────────────────

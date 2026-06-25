@@ -142,6 +142,18 @@ field is `disabled` or `readOnly`.
 Press-and-hold acceleration: hold for `stepHoldDelay` ms → interval fires at
 `stepHoldInterval` ms.
 
+Each button carries an accessible `aria-label` (defaults `"Increase"` /
+`"Decrease"`). Localize them via the `incrementLabel` / `decrementLabel` props on
+`<NumberField.Root>`, or override per button with `aria-label` on
+`<NumberField.Increment>` / `<NumberField.Decrement>`.
+
+```tsx
+<NumberField.Root incrementLabel="Augmenter" decrementLabel="Diminuer">
+  <NumberField.Decrement>−</NumberField.Decrement>
+  <NumberField.Increment>+</NumberField.Increment>
+</NumberField.Root>
+```
+
 ---
 
 ## `NumberField.ScrubArea`
@@ -152,6 +164,7 @@ Wraps any element; dragging over it adjusts the value via Pointer Lock API.
 |------|------|---------|-------------|
 | `direction` | `"horizontal" \| "vertical" \| "both"` | `"horizontal"` | Drag axis. |
 | `pixelSensitivity` | `number` | `4` | Pixels dragged per step. |
+| `label` | `string` | `"Scrub to change value"` | Accessible label (aria-label) for the scrub area. |
 | `render` | `RenderProp` | — | Custom element. |
 
 ```tsx
@@ -161,9 +174,14 @@ Wraps any element; dragging over it adjusts the value via Pointer Lock API.
 ```
 
 The element renders as `role="slider"` with `tabIndex={0}`, so it is keyboard
-accessible: arrow keys (←/→ or ↑/↓) step the value while it is focused. The CSS
-`cursor` reflects the axis (`ew-resize` / `ns-resize` / `move`), and
-`data-scrubbing=""` is set while a pointer-lock drag is active.
+accessible: arrow keys (←/→ or ↑/↓) step the value while it is focused. It also
+exposes the slider value ARIA — `aria-valuenow`, `aria-valuemin`,
+`aria-valuemax`, `aria-valuetext` (the formatted value), and `aria-disabled` — so
+assistive tech announces the current value and range. The CSS `cursor` reflects
+the axis (`ew-resize` / `ns-resize` / `move`), and `data-scrubbing=""` is set
+while a pointer-lock drag is active.
+
+`pixelSensitivity` values below `1` are clamped to `1`.
 
 ---
 
@@ -203,17 +221,25 @@ formatting outside a `NumberField.Root`, use
 
 ## `NumberField.Description`
 
-Renders helper text as a `<p>`. To expose it to screen readers, give your help
-element an `id` and pass it as `aria-describedby` on `<NumberField.Input>` —
-raqam does not link `Description` to the input automatically yet. See
+Renders helper text as a `<p>`. It is automatically associated with the input
+for screen readers: while a `<NumberField.Description>` is mounted, the input's
+`aria-describedby` points at it. The reference is wired up after mount (the same
+way `aria-labelledby` is) and removed when the description unmounts, so there is
+never a dangling reference. See
 [Accessibility](/docs/guides/accessibility#associating-help-text).
 
 ```tsx
 <NumberField.Root locale="en-US">
-  <NumberField.Input aria-describedby="qty-help" />
-  <p id="qty-help">Enter a value between 0 and 100.</p>
+  <NumberField.Input />
+  <NumberField.Description>
+    Enter a value between 0 and 100.
+  </NumberField.Description>
 </NumberField.Root>
 ```
+
+If you also pass `aria-describedby` on `<NumberField.Input>`, your value is
+**merged** with the description id (your value first), not dropped — e.g.
+`aria-describedby="my-hint amount-description"`.
 
 ---
 

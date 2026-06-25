@@ -74,6 +74,13 @@ describe("NumberField ARIA attributes", () => {
     expect(input).toHaveAttribute("aria-valuemax", "100");
   });
 
+  it("omits aria-valuemin/max for non-finite bounds (no NaN/Infinity in ARIA)", () => {
+    renderField({ minValue: Number.NaN, maxValue: Number.POSITIVE_INFINITY, locale: "en-US" });
+    const input = screen.getByRole("spinbutton");
+    expect(input).not.toHaveAttribute("aria-valuemin");
+    expect(input).not.toHaveAttribute("aria-valuemax");
+  });
+
   it("sets aria-disabled when disabled", () => {
     renderField({ disabled: true });
     expect(screen.getByRole("spinbutton")).toHaveAttribute("aria-disabled");
@@ -685,6 +692,39 @@ describe("NumberField Description and ErrorMessage", () => {
     expect(desc.id).toBeTruthy();
   });
 
+  it("points the input's aria-describedby at a rendered Description", () => {
+    render(
+      <NumberField.Root locale="en-US">
+        <NumberField.Input data-testid="input" />
+        <NumberField.Description data-testid="desc">Enter amount</NumberField.Description>
+      </NumberField.Root>
+    );
+    const input = screen.getByTestId("input");
+    const desc = screen.getByTestId("desc");
+    expect(input.getAttribute("aria-describedby")).toBe(desc.id);
+  });
+
+  it("leaves the input's aria-describedby unset when no Description is rendered", () => {
+    render(
+      <NumberField.Root locale="en-US">
+        <NumberField.Input data-testid="input" />
+      </NumberField.Root>
+    );
+    expect(screen.getByTestId("input")).not.toHaveAttribute("aria-describedby");
+  });
+
+  it("merges a consumer aria-describedby on Input with the Description id", () => {
+    render(
+      <NumberField.Root locale="en-US">
+        <NumberField.Input data-testid="input" aria-describedby="ext-hint" />
+        <NumberField.Description data-testid="desc">Help</NumberField.Description>
+      </NumberField.Root>
+    );
+    const input = screen.getByTestId("input");
+    const desc = screen.getByTestId("desc");
+    expect(input.getAttribute("aria-describedby")).toBe(`ext-hint ${desc.id}`);
+  });
+
   it("renders ErrorMessage with role=alert", () => {
     render(
       <NumberField.Root locale="en-US">
@@ -888,5 +928,187 @@ describe("custom formatValue/parseValue", () => {
     );
     // Custom format: "1234.00 pts"
     expect((screen.getByTestId("input") as HTMLInputElement).value).toBe("1234.00 pts");
+  });
+});
+
+describe("NumberField onValueChange formattedValue", () => {
+  it("reports the correct formattedValue while typing", async () => {
+    const user = userEvent.setup();
+    const onValueChange = vi.fn();
+    render(
+      <NumberField.Root locale="en-US" onValueChange={onValueChange}>
+        <NumberField.Input data-testid="input" />
+      </NumberField.Root>
+    );
+    const input = screen.getByTestId("input");
+    await user.click(input);
+    await user.type(input, "5");
+
+    expect(onValueChange).toHaveBeenCalled();
+    const calls = onValueChange.mock.calls;
+    const [value, details] = calls[calls.length - 1] as [
+      number | null,
+      { reason: string; formattedValue: string },
+    ];
+    expect(value).toBe(5);
+    expect(details).toEqual(expect.objectContaining({ formattedValue: "5" }));
+  });
+
+  it("reports the correct formattedValue on ArrowUp", async () => {
+    const user = userEvent.setup();
+    const onValueChange = vi.fn();
+    render(
+      <NumberField.Root
+        locale="en-US"
+        defaultValue={5}
+        step={1}
+        onValueChange={onValueChange}
+      >
+        <NumberField.Input data-testid="input" />
+      </NumberField.Root>
+    );
+    const input = screen.getByTestId("input");
+    await user.click(input);
+    await user.keyboard("{ArrowUp}");
+
+    expect(onValueChange).toHaveBeenCalled();
+    const calls = onValueChange.mock.calls;
+    const [value, details] = calls[calls.length - 1] as [
+      number | null,
+      { reason: string; formattedValue: string },
+    ];
+    expect(value).toBe(6);
+    expect(details).toEqual(
+      expect.objectContaining({ reason: "keyboard", formattedValue: "6" })
+    );
+  });
+});
+
+describe("NumberField custom parseValue while typing", () => {
+  it("honors a custom parseValue/formatValue (k-suffix) when typing", async () => {
+    const user = userEvent.setup();
+    const onValueChange = vi.fn();
+    render(
+      <NumberField.Root
+        locale="en-US"
+        onValueChange={onValueChange}
+        parseValue={(s) => ({
+          value: s.endsWith("k")
+            ? parseFloat(s) * 1000
+            : /\d/.test(s)
+              ? parseFloat(s)
+              : null,
+          isIntermediate: false,
+        })}
+        formatValue={(v) => (v >= 1000 ? `${v / 1000}k` : String(v))}
+      >
+        <NumberField.Input data-testid="input" />
+      </NumberField.Root>
+    );
+    const input = screen.getByTestId("input") as HTMLInputElement;
+    await user.click(input);
+    await user.type(input, "5000");
+
+    // The custom formatter renders 5000 → "5k".
+    expect(input.value).toBe("5k");
+    // The custom parser's value (5000) must be threaded through — NOT 5.
+    expect(onValueChange).toHaveBeenCalled();
+    const calls = onValueChange.mock.calls;
+    const [value] = calls[calls.length - 1] as [number | null, unknown];
+    expect(value).toBe(5000);
+  });
+
+  it("honors a custom parseValue that rejects input (value: null)", async () => {
+    const user = userEvent.setup();
+    const onValueChange = vi.fn();
+    render(
+      <NumberField.Root
+        locale="en-US"
+        onValueChange={onValueChange}
+        // Rejects "5" specifically; the built-in parser would otherwise read it as 5.
+        parseValue={(s) => ({
+          value: s === "5" ? null : /\d/.test(s) ? parseFloat(s) : null,
+          isIntermediate: false,
+        })}
+      >
+        <NumberField.Input data-testid="input" />
+      </NumberField.Root>
+    );
+    const input = screen.getByTestId("input") as HTMLInputElement;
+    await user.click(input);
+    await user.type(input, "5");
+    // The custom rejection must win — numberValue stays null, not re-parsed to 5.
+    const calls = onValueChange.mock.calls;
+    const [value] = calls[calls.length - 1] as [number | null, unknown];
+    expect(value).toBeNull();
+  });
+});
+
+describe("NumberField cut behavior", () => {
+  it("uses raw numberValue and clears the field when copyBehavior='raw'", () => {
+    const onValueChange = vi.fn();
+    render(
+      <NumberField.Root
+        locale="en-US"
+        defaultValue={1234.56}
+        copyBehavior="raw"
+        onValueChange={onValueChange}
+      >
+        <NumberField.Input data-testid="input" />
+      </NumberField.Root>
+    );
+    const input = screen.getByTestId("input") as HTMLInputElement;
+    const mockSetData = vi.fn();
+    const mockGetData = vi.fn(() => "");
+
+    fireEvent.cut(input, {
+      clipboardData: { setData: mockSetData, getData: mockGetData },
+    });
+
+    // Raw numeric string is written to the clipboard.
+    expect(mockSetData).toHaveBeenCalledWith("text/plain", "1234.56");
+    // The field is cleared after cut.
+    expect(input.value).toBe("");
+    // onValueChange reports the dedicated "clear" reason with a null value.
+    expect(onValueChange).toHaveBeenCalledWith(
+      null,
+      expect.objectContaining({ reason: "clear" })
+    );
+  });
+});
+
+describe("IME compositionEnd value processing", () => {
+  it("fa-IR: processes the composed value and formats it with the fa grouping separator", () => {
+    render(
+      <NumberField.Root locale="fa-IR">
+        <NumberField.Input data-testid="input" />
+      </NumberField.Root>
+    );
+    const input = screen.getByTestId("input") as HTMLInputElement;
+    fireEvent.compositionStart(input);
+    fireEvent.compositionEnd(input, { target: { value: "۱۲۳۴" } });
+
+    // fa digits with the fa grouping separator U+066C.
+    expect(input.value).toBe("۱٬۲۳۴");
+  });
+
+  it("custom parse/format: processes the composed value through the custom branch", () => {
+    render(
+      <NumberField.Root
+        locale="en-US"
+        parseValue={(s) => ({
+          value: /\d/.test(s) ? parseFloat(s) : null,
+          isIntermediate: false,
+        })}
+        formatValue={(v) => `${v} pts`}
+      >
+        <NumberField.Input data-testid="input" />
+      </NumberField.Root>
+    );
+    const input = screen.getByTestId("input") as HTMLInputElement;
+    fireEvent.compositionStart(input);
+    fireEvent.compositionEnd(input, { target: { value: "42" } });
+
+    expect(input.value).toBe("42 pts");
   });
 });

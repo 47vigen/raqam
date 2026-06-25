@@ -58,3 +58,51 @@ describe("useNumberField — aria-labelledby resolution", () => {
     expect(result.current.groupProps["aria-labelledby"]).toBe("external-label");
   });
 });
+
+describe("useNumberField — aria-describedby resolution", () => {
+  it("omits aria-describedby until a description element is mounted", () => {
+    const { result } = renderAria({ locale: "en-US", id: "amount" });
+    expect(result.current.descriptionProps.id).toBe("amount-description");
+    expect(result.current.inputProps["aria-describedby"]).toBeUndefined();
+  });
+
+  it("wires aria-describedby to the description once descriptionProps' ref mounts", () => {
+    const { result } = renderAria({ locale: "en-US", id: "amount" });
+    act(() => {
+      result.current.descriptionProps.ref?.(document.createElement("p"));
+    });
+    expect(result.current.inputProps["aria-describedby"]).toBe("amount-description");
+  });
+
+  it("merges a consumer aria-describedby with the internal description id", () => {
+    const { result } = renderAria({
+      locale: "en-US",
+      id: "amount",
+      "aria-describedby": "external-hint",
+    });
+    // Before a description mounts, only the consumer value is present.
+    expect(result.current.inputProps["aria-describedby"]).toBe("external-hint");
+    act(() => {
+      result.current.descriptionProps.ref?.(document.createElement("p"));
+    });
+    expect(result.current.inputProps["aria-describedby"]).toBe("external-hint amount-description");
+  });
+});
+
+describe("useNumberField — localizable button labels", () => {
+  it("defaults the increment/decrement aria-labels to English", () => {
+    const { result } = renderAria({ locale: "en-US" });
+    expect(result.current.incrementButtonProps["aria-label"]).toBe("Increase");
+    expect(result.current.decrementButtonProps["aria-label"]).toBe("Decrease");
+  });
+
+  it("uses custom increment/decrement labels when provided", () => {
+    const { result } = renderAria({
+      locale: "fa-IR",
+      incrementLabel: "افزایش",
+      decrementLabel: "کاهش",
+    });
+    expect(result.current.incrementButtonProps["aria-label"]).toBe("افزایش");
+    expect(result.current.decrementButtonProps["aria-label"]).toBe("کاهش");
+  });
+});

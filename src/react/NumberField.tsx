@@ -190,7 +190,10 @@ const Root = forwardRef<HTMLDivElement, NumberFieldRootProps>(function NumberFie
       if (onValueChangeRef.current && stateRef.current) {
         onValueChangeRef.current(value, {
           reason: stateRef.current._getLastChangeReason(),
-          formattedValue: stateRef.current.inputValue,
+          // _getLatestDisplay (not .inputValue) — at onChange time `inputValue`
+          // state still holds the previous render's value; the ref is updated
+          // synchronously before the emission, so it matches `value`.
+          formattedValue: stateRef.current._getLatestDisplay(),
         });
       }
     },
@@ -280,8 +283,20 @@ const Input = forwardRef<HTMLInputElement, InputProps>(function NumberFieldInput
   _ref
 ) {
   const { aria, state, inputRef } = useNumberFieldContext();
+  // Merge a consumer aria-describedby (passed on <Input>) with the hook's
+  // auto-wired value (the mounted <Description> id) instead of letting the
+  // rest-spread clobber it — otherwise putting aria-describedby on the input
+  // would silently drop the description association.
+  const describedBy =
+    [rest["aria-describedby"], aria.inputProps["aria-describedby"]].filter(Boolean).join(" ") ||
+    undefined;
   const el = (
-    <input ref={inputRef as React.RefObject<HTMLInputElement>} {...aria.inputProps} {...rest} />
+    <input
+      ref={inputRef as React.RefObject<HTMLInputElement>}
+      {...aria.inputProps}
+      {...rest}
+      aria-describedby={describedBy}
+    />
   );
   return renderWith(el, render, state);
 });
@@ -337,11 +352,11 @@ const HiddenInput = function NumberFieldHiddenInput() {
 // ── ScrubArea ─────────────────────────────────────────────────────────────────
 
 const ScrubArea = forwardRef<HTMLSpanElement, ScrubAreaProps>(function NumberFieldScrubArea(
-  { render, children, direction = "horizontal", pixelSensitivity = 4, ...rest },
+  { render, children, direction = "horizontal", pixelSensitivity = 4, label, ...rest },
   ref
 ) {
   const { state } = useNumberFieldContext();
-  const { scrubAreaProps } = useScrubArea(state, { direction, pixelSensitivity });
+  const { scrubAreaProps } = useScrubArea(state, { direction, pixelSensitivity, label });
 
   const el = (
     <span ref={ref} {...scrubAreaProps} {...(rest as React.HTMLAttributes<HTMLSpanElement>)}>
@@ -390,8 +405,13 @@ interface DescriptionProps extends React.HTMLAttributes<HTMLParagraphElement> {
 const Description = forwardRef<HTMLParagraphElement, DescriptionProps>(
   function NumberFieldDescription({ children, ...rest }, ref) {
     const { aria } = useNumberFieldContext();
+    // descriptionProps carries a registration ref (like labelProps) so the input's
+    // aria-describedby only points here while a Description is mounted. Merge it
+    // with the forwarded ref so both fire.
+    const { ref: descRef, ...descriptionProps } = aria.descriptionProps;
+    const mergedRef = useMemo(() => mergeRefs(ref, descRef), [ref, descRef]);
     return (
-      <p ref={ref} {...aria.descriptionProps} {...rest}>
+      <p ref={mergedRef} {...descriptionProps} {...rest}>
         {children}
       </p>
     );
@@ -428,12 +448,26 @@ interface FormattedProps extends React.HTMLAttributes<HTMLSpanElement> {
 }
 
 const Formatted = forwardRef<HTMLSpanElement, FormattedProps>(function NumberFieldFormatted(
-  { render, ...rest },
+  { render, style, ...rest },
   ref
 ) {
-  const { state } = useNumberFieldContext();
+  const { state, aria } = useNumberFieldContext();
+  // The input only sets `style` for RTL locales, so its presence flags RTL.
+  const isRTL = aria.inputProps.style != null;
+  // Isolate the number from surrounding bidi text (and mirror the input's RTL
+  // alignment + data-rtl hook) so an inline formatted value renders correctly
+  // next to RTL copy instead of inheriting the wrong direction.
+  const mergedStyle: React.CSSProperties = isRTL
+    ? { direction: "ltr", textAlign: "right", unicodeBidi: "plaintext", ...style }
+    : { unicodeBidi: "isolate", ...style };
   const el = (
-    <span ref={ref} aria-hidden="true" {...rest}>
+    <span
+      ref={ref}
+      aria-hidden="true"
+      data-rtl={isRTL ? "" : undefined}
+      style={mergedStyle}
+      {...rest}
+    >
       {state.inputValue}
     </span>
   );

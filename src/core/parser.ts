@@ -2,6 +2,9 @@ import { createFormatter } from "./formatter.js";
 import { normalizeDigits } from "./normalizer.js";
 import type { LocaleInfo, ParseResult } from "./types.js";
 
+/** Upper bound on input length accepted by parse(); see the guard in parse(). */
+const MAX_PARSE_INPUT = 256;
+
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
 /**
@@ -40,6 +43,14 @@ export interface Parser {
   parse(input: string): ParseResult;
   isIntermediate(input: string): boolean;
   getLocaleInfo(): LocaleInfo;
+  /**
+   * Strip formatting affordances (grouping separators, currency symbol, prefix/
+   * suffix, percent sign…) from `input`, returning the bare numeric string
+   * (ASCII digits, an optional leading "-", and at most one "."). Trailing zeros
+   * the user typed are preserved. Useful for deriving a precision-preserving raw
+   * value from a formatted display string.
+   */
+  strip(input: string): string;
 }
 
 /**
@@ -77,6 +88,29 @@ export function createParser(opts: ParserOptions = {}): Parser {
     }
   }
 
+  // Locale's scientific/engineering exponent separator. Most locales use "E"
+  // (handled directly by the exponent regex), but some localize it — ar "أس",
+  // fa "×۱۰^", sv "×10^". Captured (digit-normalized) so it can be mapped to "e"
+  // before exponent handling; otherwise the generic strip would delete it and
+  // glue the exponent digits onto the mantissa ("1.234×10^3" -> "1.234103").
+  let exponentSeparator = "";
+  const notation = opts.formatOptions?.notation;
+  if (notation === "scientific" || notation === "engineering") {
+    try {
+      const sep = normalizeDigits(
+        fmt
+          .formatToParts(1234)
+          .filter((p) => p.type === "exponentSeparator")
+          .map((p) => p.value)
+          .join("")
+      );
+      // Plain ASCII "E"/"e" is already handled by the exponent regex.
+      if (sep && sep !== "e" && sep !== "E") exponentSeparator = sep;
+    } catch {
+      exponentSeparator = "";
+    }
+  }
+
   function getLocaleInfo(): LocaleInfo {
     return fmt.getLocaleInfo();
   }
@@ -86,6 +120,19 @@ export function createParser(opts: ParserOptions = {}): Parser {
 
     // 1. Normalise non-Latin digits to ASCII
     let s = normalizeDigits(raw);
+
+    // 1a. Strip Unicode bidi control marks. RTL locales' accounting currency
+    // format prepends an invisible LRM/RLM (e.g. fa-IR: "‎(ریال ۱٬۲۳۴)") before
+    // the "(", which would defeat the index-0-anchored accounting match below and
+    // silently drop the negative sign.
+    s = s.replace(/[‎‏؜‪-‮⁦-⁩]/g, "");
+
+    // 1a2. Map a localized scientific exponent separator (ar "أس", fa "×۱۰^",
+    // sv "×10^") to "e" so the exponent handling below recognizes it instead of
+    // the generic strip mangling it ("1.234×10^3" -> "1.234103").
+    if (exponentSeparator) {
+      s = s.split(exponentSeparator).join("e");
+    }
 
     // 1b. Remove the currency symbol wholesale (before separators are touched),
     // so a symbol containing ASCII dots — e.g. Arabic "ج.م." — does not leave
@@ -129,6 +176,42 @@ export function createParser(opts: ParserOptions = {}): Parser {
       s = s.split("−").join("-");
     }
 
+    // Run the exponent checks on a copy with surrounding whitespace removed — the
+    // regexes are anchored, so " 1e3 " would otherwise miss and get its "E"
+    // char-stripped to "13". Only leading/trailing spaces are trimmed (not
+    // internal ones), so "1.5 each" stays a space-separated word, not "1.5each"
+    // (which would look like a malformed exponent).
+    const st = s.trim();
+
+    // 7a. Preserve a clean exponent (e.g. "1.234E3") so scientific/engineering
+    // notation round-trips through parse(): the generic char-strip below would
+    // delete the "E", gluing mantissa and exponent into a wrong value
+    // ("1.234E3" -> "1.2343"). A complete exponent may be followed by trailing
+    // affordances — a percent sign ("5E1%"), a unit (" km", " meters"), etc. —
+    // which are dropped here (parse() re-applies percent scaling via isPercent).
+    // The remainder is only treated as an affordance when it carries no further
+    // digit AND does not start with an exponent-syntax char (e/E/+/-): a real
+    // affordance never starts with one, whereas "1e3e", "1e3+", "1e2e3" are
+    // malformed/continued exponents that must fall through to the guard / strip.
+    // Returning early also skips the minus-collapse (step 8) so a negative
+    // exponent's sign survives; the mantissa carries at most one leading "-".
+    // The mantissa allows a leading "+" too: signDisplay "always"/"exceptZero"
+    // formats positives as "+1.234E3"; Number() accepts the "+" and the regular
+    // path already tolerates a leading "+" (the strip removes it).
+    const sci = st.match(/^([+-]?(?:\d+(?:\.\d*)?|\.\d+))[eE]([+-]?\d+)(.*)$/);
+    if (sci && !/\d/.test(sci[3]) && !/^[eE+\-]/.test(sci[3])) {
+      return `${sci[1]}e${sci[2]}`;
+    }
+
+    // 7b. MALFORMED exponent: a valid mantissa immediately followed by "e"/"E"
+    // that is not a complete scientific number ("1e", "1e+", "1efoo", "1EUR").
+    // The strip below would silently delete the "e" and yield a wrong value (1),
+    // so return the string with the marker intact — parse()'s exponent branch
+    // then rejects it instead of mis-parsing.
+    if (/^[+-]?(?:\d+(?:\.\d*)?|\.\d+)[eE]/.test(st)) {
+      return st;
+    }
+
     // 7. Strip currency symbol, percent sign, spaces that Intl might prepend/append
     // Strip any remaining non-numeric chars except digits, ".", "-"
     // (handles currency prefixes/suffixes from Intl)
@@ -147,6 +230,14 @@ export function createParser(opts: ParserOptions = {}): Parser {
 
   function parse(input: string): ParseResult {
     if (!input || input.trim() === "") {
+      return { value: null, isValid: false, isIntermediate: false };
+    }
+
+    // Bound the input length before any regex/scan work. Real numeric input is
+    // short; an unbounded attacker-controlled string (e.g. a crafted paste)
+    // could otherwise drive worst-case backtracking. 256 chars is far beyond any
+    // legitimate number (≈250-digit precision) yet keeps all scans trivial.
+    if (input.length > MAX_PARSE_INPUT) {
       return { value: null, isValid: false, isIntermediate: false };
     }
 
@@ -180,9 +271,34 @@ export function createParser(opts: ParserOptions = {}): Parser {
       return { value: null, isValid: false, isIntermediate: false };
     }
 
+    // Scientific / exponent notation, preserved by stripAffordances (step 7a).
+    // Handle it explicitly: Number() reads it, but the plain validation regex
+    // below would reject the "e". A malformed exponent is rejected rather than
+    // silently corrupted.
+    if (/[eE]/.test(stripped)) {
+      if (!/^[+-]?(?:\d+(?:\.\d*)?|\.\d+)[eE][+-]?\d+$/.test(stripped)) {
+        return { value: null, isValid: false, isIntermediate: false };
+      }
+      let n = Number(stripped);
+      if (!Number.isFinite(n)) {
+        return { value: null, isValid: false, isIntermediate: false };
+      }
+      // A fractional exponent value (e.g. "5e-1" = 0.5) has no literal "." to
+      // trip the allowDecimal guard above, so reject it here for parity with the
+      // plain-decimal path when decimals are disallowed.
+      if (!allowDecimal && !Number.isInteger(n)) {
+        return { value: null, isValid: false, isIntermediate: false };
+      }
+      if (Object.is(n, -0)) n = 0;
+      if (isPercent && n !== 0) n = Number((n / 100).toPrecision(15));
+      return { value: n, isValid: true, isIntermediate: false };
+    }
+
     // Accept integers and decimals with the dot either trailing ("1.") or
-    // leading (".5") so partially-typed values still yield a numeric value.
-    if (!/^-?(?:\d+\.?\d*|\.\d+)$/.test(stripped)) {
+    // leading (".5") so partially-typed values still yield a numeric value. The
+    // pattern is written without an ambiguous alternation so it matches in linear
+    // time (the empty / lone-"-" / lone-"." cases are handled above).
+    if (!/^-?\d*(?:\.\d*)?$/.test(stripped)) {
       return { value: null, isValid: false, isIntermediate: false };
     }
 
@@ -209,5 +325,5 @@ export function createParser(opts: ParserOptions = {}): Parser {
     return parse(input).isIntermediate;
   }
 
-  return { parse, isIntermediate, getLocaleInfo };
+  return { parse, isIntermediate, getLocaleInfo, strip: stripAffordances };
 }
