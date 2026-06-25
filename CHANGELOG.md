@@ -1,5 +1,168 @@
 # raqam Changelog
 
+## 0.4.0
+
+### Minor Changes
+
+- 5509fcf: Fix accessibility wiring, scrub robustness, and the raw-value contract; add i18n labels
+
+  **Accessibility**
+
+  - `<NumberField.Description>` is now associated with the input: the input's
+    `aria-describedby` points at the rendered description (and merges with a
+    consumer-supplied `aria-describedby`). It uses the same mount-registration ref
+    as `labelProps`, so no dangling reference is left when no description renders.
+  - The increment/decrement button labels are now localizable via the new
+    `incrementLabel` / `decrementLabel` props (default `"Increase"` / `"Decrease"`),
+    and the scrub area label via `<NumberField.ScrubArea label="…">` /
+    `useScrubArea({ label })` (default `"Scrub to change value"`). Previously these
+    ARIA strings were hardcoded English in an i18n-first library.
+
+  **Correctness**
+
+  - Scrub-driven changes now report the `"scrub"` change reason through
+    `onValueChange` (keyboard and pointer-lock drag). It was previously left as the
+    stale prior reason, and the `"scrub"` reason was never emitted.
+  - `useScrubArea` clamps `pixelSensitivity` to a minimum of 1px/step. A value of
+    `0` (or negative) previously caused an infinite loop that froze the tab on the
+    first pointer move.
+  - `rawValue` / `onRawChange` now emit the unformatted, precision-preserving
+    string (grouping separators, currency symbol, prefix/suffix stripped; typed
+    trailing zeros preserved) instead of the formatted display string — matching
+    the documented "raw string the user typed" contract. Rescaling and
+    non-invertible displays (percent, compact, scientific, unit, custom formatters)
+    fall back to the canonical numeric string of the value (e.g. a percent field
+    showing `50%` yields `"0.5"`, never `"50"`). A new `parser.strip(input)` exposes
+    the affordance-stripping used to derive it.
+
+  **Performance / DX**
+
+  - The internal `Intl.NumberFormat` cache is now a bounded LRU (256 entries), so
+    high-cardinality format options (per-row currencies, per-keystroke fraction
+    digits) no longer grow it without limit for the process lifetime.
+  - Cursor restoration uses an isomorphic layout effect, removing React's
+    "useLayoutEffect does nothing on the server" SSR warning.
+  - The native mouse-wheel listener no longer re-subscribes on every render.
+  - The controlled/uncontrolled dev warning is now gated on
+    `process.env.NODE_ENV` so it is dropped from production builds.
+
+- 08468af: Fix ReDoS, RTL/scientific parsing, stale change details, runaway steppers, and scrub slider a11y
+
+  A second full-source review surfaced a fresh set of defects (none overlapping the
+  prior round). All fixes ship with regression tests.
+
+  **Security**
+
+  - Guard the parser against quadratic-backtracking ReDoS. The numeric-validation
+    regexes (core `parse`, and the scientific/compact `parseSpecialNotation` used on
+    paste) are rewritten without the ambiguous `(?:\d+\.?\d*|\.\d+)` alternation so
+    they match in linear time; `parse()` rejects inputs over 256 chars,
+    `parseSpecialNotation` over 256, and `handlePaste` discards clipboard text over
+    1000 chars before any scan. A long crafted paste can no longer freeze the main
+    thread.
+
+  **Correctness**
+
+  - RTL accounting currency negatives no longer parse as positive. `Intl` prepends
+    an invisible bidi mark before the `(` for locales like fa-IR; those marks are
+    now stripped before the accounting-paren match, so the negative sign survives
+    the format → parse round-trip.
+  - The core `createParser` now parses scientific/exponent notation
+    (`"1.234E3" → 1234`, `"1e3" → 1000`, `"1.5e-3" → 0.0015`) instead of silently
+    dropping the exponent and producing a corrupt value; malformed exponents are
+    rejected rather than mangled.
+  - `onValueChange` now reports the `formattedValue` that matches the emitted value.
+    It previously read display state one update stale (typing `5` reported `""`),
+    via a new synchronously-updated display mirror.
+  - A custom `parseValue` is now honored on the typing and IME paths — its result is
+    threaded through to `numberValue` instead of being re-derived (and discarded) by
+    the built-in parser. Previously a non-invertible custom format produced the
+    wrong value while typing (the paste path was already correct).
+  - Press-and-hold steppers no longer repeat forever when the button becomes
+    disabled mid-hold (value hits min/max): the repeat loop stops reactively on
+    disable, and new `onPointerCancel` / `onLostPointerCapture` handlers stop it on
+    touch interruption / pointer-capture loss.
+  - Fullwidth CJK digits (U+FF10–U+FF19, emitted by full-width IMEs) are now
+    normalized to ASCII, so that input parses instead of being rejected.
+
+  **Accessibility**
+
+  - `<NumberField.ScrubArea>` (`role="slider"`) now exposes `aria-valuenow` /
+    `aria-valuemin` / `aria-valuemax` / `aria-valuetext` (and `aria-disabled`), so
+    assistive tech announces the current value and range and reflects arrow-key
+    scrubbing.
+
+  **Maintainability**
+
+  - The effective fraction-digit resolution is extracted into a single shared
+    helper (`resolveEffectiveFractions`) used by both the state and behavior hooks,
+    removing the hand-mirrored duplication that had to stay in sync.
+
+- 7f4e5ad: Fix multi-entry packaging, SSR hydration, numeric edge cases, invalid-config robustness, and DOM/RTL details
+
+  A third full-source review (fresh lenses: concurrency, SSR/RSC, packaging,
+  numeric, invalid-config, DOM events, RTL, types) surfaced a new set of issues.
+  All fixes ship with tests; 678 tests pass.
+
+  **Packaging (highest impact — verified against the built artifact)**
+
+  - The build now emits shared chunks for common modules, so `registerLocale()` and
+    `NumberFieldContext` are true singletons across entry points. Previously each
+    entry (`raqam`, `raqam/core`, `raqam/react`, `raqam/locales/*`) inlined its own
+    copy of the normalizer registry and the React context, so `registerLocale` on
+    one entry didn't affect parsers from another and mixing `<NumberField.Root>`
+    from `raqam` with `useNumberFieldContext` from `raqam/react` threw. (Code
+    splitting applies to the ESM output; CJS still inlines per entry.)
+  - `sideEffects` is now an allowlist of the locale plugins instead of `false`, so
+    the documented `import 'raqam/locales/fa'` (and custom `registerLocale`
+    side-effect modules) are no longer tree-shaken away.
+  - Added the bare `./locales` export (and its types), so the documented
+    `import 'raqam/locales'` resolves instead of throwing
+    `ERR_PACKAGE_PATH_NOT_EXPORTED`.
+
+  **SSR / hydration**
+
+  - Documented that omitting `locale` formats with the runtime default — the
+    browser locale on the client but the host ICU locale on the server — which can
+    cause a hydration mismatch; pin `locale` for SSR. Corrected the `locale` JSDoc
+    (it does not default to "browser locale" on the server) and added an SSR
+    section to the README (also noting label/description ARIA wires up after mount,
+    while the native `<label for>` association is present in SSR HTML).
+
+  **Numeric robustness**
+
+  - `preciseAdd` caps precision and falls back to plain addition when the scaled
+    operands exceed `MAX_SAFE_INTEGER` — incrementing large values (e.g. near
+    `MAX_SAFE_INTEGER`, or large currency values with a fractional step) no longer
+    drops the step or moves the value backwards, and tiny steps no longer overflow
+    to `NaN`.
+  - `clamp` ignores non-finite bounds.
+
+  **Invalid / adversarial configuration**
+
+  - `step`/`largeStep`/`smallStep` are coerced to a finite positive number
+    (`0`/negative/`NaN`/`Infinity` → default), so stepping never dead-ends or emits
+    non-finite values; `minValue`/`maxValue` are dropped when non-finite.
+  - `setNumericValue` never emits a non-finite value (treats it as empty).
+  - Invalid `formatOptions`/`locale` no longer throw uncaught during render/SSR —
+    the formatter falls back to a safe configuration and warns once in dev.
+
+  **DOM / RTL**
+
+  - Cursor restore and mouse-wheel now resolve the focused element through the
+    input's root node, so they work inside a Shadow DOM.
+  - The scrub area releases pointer lock on unmount (no more stranded hidden cursor)
+    and handles a rejected `requestPointerLock()` promise.
+  - The input uses `unicode-bidi: plaintext` (was `embed`) so an RTL suffix /
+    currency name renders on its natural side while digits stay LTR;
+    `NumberField.Formatted` now isolates its number from surrounding bidi text and
+    mirrors `data-rtl`.
+
+  **Types**
+
+  - `useControllableState` overloads narrow the return to `T` (no `| undefined`)
+    when a `value` or `defaultValue` is supplied.
+
 ## 0.3.2
 
 ### Patch Changes
