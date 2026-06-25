@@ -159,6 +159,13 @@ export interface NumberFieldState {
   /** Internal: read the current change reason (used by NumberField.Root) */
   _getLastChangeReason: () => ChangeReason;
   /**
+   * Internal: read the display string that matches the value most recently
+   * emitted via onChange. Updated synchronously before the state setter, so it is
+   * accurate at onChange time (unlike `inputValue`, which still reflects the
+   * previous render). Used by NumberField.Root to report `formattedValue`.
+   */
+  _getLatestDisplay: () => string;
+  /**
    * Update display string (triggers parse + onChange). `knownValue` overrides
    * the parsed value when `val` is a formatted string that cannot be reversed
    * (compact "2.5K", scientific, unit notation).

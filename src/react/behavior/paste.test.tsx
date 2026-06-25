@@ -115,3 +115,53 @@ describe("constraint flags on paste", () => {
     expect(norm(r.committedDisplay)).toBe("15");
   });
 });
+
+// A custom parseValue paired with a NON-invertible custom formatValue is the
+// canonical magnitude-loss trap: the display ("1.2K") can never be re-parsed
+// back to 1234. The paste path threads the parser's known value into state so
+// the committed numeric value stays exact instead of being re-derived from the
+// lossy display.
+describe("custom parseValue / formatValue on paste", () => {
+  it("preserves the parsed magnitude through a non-invertible formatValue", async () => {
+    const r = await paste(
+      {
+        parseValue: (s: string) => {
+          const n = parseFloat(s.replace(/[^0-9.\-]/g, ""));
+          return { value: Number.isNaN(n) ? null : n, isIntermediate: false };
+        },
+        formatValue: (v: number) => `${(v / 1000).toFixed(1)}K`,
+      },
+      "1234"
+    );
+    // Magnitude is the exact parsed value, NOT re-derived from the "1.2K" display.
+    expect(r.committedValue).toBe(1234);
+    expect(norm(r.committedDisplay)).toBe("1.2K");
+  });
+});
+
+// Step 4 of the paste pipeline: when the primary locale parse fails, the
+// digit-only fallback strips everything but digits / locale decimal / sign and
+// re-parses. In fa-IR the decimal separator is U+066B, so ASCII dots are NOT
+// the decimal — "1.2.3" has two stray ASCII dots the primary parse rejects, and
+// the fallback recovers the integer 123.
+describe("locale digit-only fallback on paste", () => {
+  it("fa: strips ASCII dots that are not the locale decimal, recovering 123", async () => {
+    const r = await paste({ locale: "fa" }, "1.2.3");
+    expect(r.committedValue).toBe(123);
+  });
+});
+
+describe("ReDoS guard on paste", () => {
+  it("discards an absurdly long paste without catastrophic backtracking", async () => {
+    // The old ambiguous regexes in parseSpecialNotation backtracked ~O(n^2):
+    // 100k chars took ~10s, which would exceed the test timeout. The length
+    // guard + de-ambiguated patterns keep this instant; the field stays empty.
+    const huge = `${"9".repeat(100000)}k9`;
+    const start = performance.now();
+    const r = await paste({ locale: "en-US" }, huge);
+    const elapsed = performance.now() - start;
+    expect(r.committedValue).toBeNull();
+    expect(r.committedDisplay).toBe("");
+    expect(elapsed).toBeLessThan(2000);
+  });
+});

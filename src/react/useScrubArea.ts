@@ -12,6 +12,11 @@ export interface ScrubAreaReturn {
     tabIndex: number;
     style: React.CSSProperties;
     "aria-label": string;
+    "aria-valuenow": number | undefined;
+    "aria-valuemin": number | undefined;
+    "aria-valuemax": number | undefined;
+    "aria-valuetext": string | undefined;
+    "aria-disabled": true | undefined;
     "data-scrubbing": string | undefined;
     onPointerDown: (e: React.PointerEvent) => void;
     onKeyDown: (e: React.KeyboardEvent) => void;
@@ -171,6 +176,14 @@ export function useScrubArea(
       WebkitUserSelect: "none" as const,
     } satisfies React.CSSProperties,
     "aria-label": label,
+    // role="slider" requires the current value (and ideally the range) to be
+    // exposed, else assistive tech announces a value-less slider with no feedback
+    // when the user scrubs with the arrow keys.
+    "aria-valuenow": state.numberValue ?? undefined,
+    "aria-valuemin": state.options.minValue,
+    "aria-valuemax": state.options.maxValue,
+    "aria-valuetext": state.inputValue || undefined,
+    "aria-disabled": state.options.disabled ? (true as const) : undefined,
     "data-scrubbing": isScrubbing ? "" : undefined,
     onPointerDown,
     onKeyDown,

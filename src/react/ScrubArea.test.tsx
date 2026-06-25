@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
-import { render, screen, fireEvent } from "@testing-library/react";
+import { render, screen, fireEvent, act } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { NumberField } from "./NumberField.js";
 
@@ -268,5 +268,87 @@ describe("NumberField.ScrubArea", () => {
       </NumberField.Root>
     );
     expect(screen.getByTestId("scrub-area")).toHaveAttribute("aria-label", "Glisser pour changer");
+  });
+
+  it("exposes slider value/range ARIA", async () => {
+    render(
+      <NumberField.Root defaultValue={50} minValue={0} maxValue={100}>
+        <NumberField.ScrubArea data-testid="scrub">Drag</NumberField.ScrubArea>
+        <NumberField.Input />
+      </NumberField.Root>
+    );
+
+    const scrub = screen.getByTestId("scrub");
+    expect(scrub).toHaveAttribute("aria-valuenow", "50");
+    expect(scrub).toHaveAttribute("aria-valuemin", "0");
+    expect(scrub).toHaveAttribute("aria-valuemax", "100");
+    expect(scrub.getAttribute("aria-valuetext")).not.toBeNull();
+
+    scrub.focus();
+    await userEvent.keyboard("{ArrowRight}");
+    expect(scrub).toHaveAttribute("aria-valuenow", "51");
+  });
+
+  it("diagonal direction follows the dominant axis", () => {
+    const mock = setupPointerLockMock();
+    const onChange = vi.fn();
+
+    render(
+      <NumberField.Root defaultValue={50} step={1} onChange={onChange}>
+        <NumberField.ScrubArea data-testid="scrub-area" direction="both" pixelSensitivity={4}>
+          Drag
+        </NumberField.ScrubArea>
+        <NumberField.Input />
+      </NumberField.Root>
+    );
+
+    const scrubArea = screen.getByTestId("scrub-area");
+    fireEvent.pointerDown(scrubArea, { button: 0, bubbles: true });
+
+    // Dominant +X (|dx| >= |dy|) → uses dx → increment (up from 50).
+    mock.simulateMouseMove(8, 2);
+    expect(onChange).toHaveBeenCalledWith(51);
+
+    onChange.mockClear();
+
+    // Dominant -Y (|dy| > |dx|) → uses -dy → up = increment (up from 50).
+    mock.simulateMouseMove(2, -8);
+    expect(onChange).toHaveBeenCalledWith(51);
+
+    onChange.mockClear();
+
+    // Sanity: dominant +Y (|dy| > |dx|) → uses -dy → down = decrement.
+    mock.simulateMouseMove(2, 8);
+    expect(onChange).toHaveBeenCalledWith(49);
+  });
+
+  it("clears scrubbing state on pointer-lock release", () => {
+    const mock = setupPointerLockMock();
+    const onChange = vi.fn();
+
+    render(
+      <NumberField.Root defaultValue={50} step={1} onChange={onChange}>
+        <NumberField.ScrubArea data-testid="scrub-area" pixelSensitivity={4}>
+          Drag
+        </NumberField.ScrubArea>
+        <NumberField.Input />
+      </NumberField.Root>
+    );
+
+    const scrubArea = screen.getByTestId("scrub-area");
+    fireEvent.pointerDown(scrubArea, { button: 0, bubbles: true });
+    expect(scrubArea).toHaveAttribute("data-scrubbing", "");
+
+    // Release the lock — the mock fires pointerlockchange synchronously.
+    act(() => {
+      document.exitPointerLock();
+    });
+
+    expect(scrubArea).not.toHaveAttribute("data-scrubbing");
+
+    // A subsequent move must no longer change the value.
+    onChange.mockClear();
+    mock.simulateMouseMove(4, 0);
+    expect(onChange).not.toHaveBeenCalled();
   });
 });

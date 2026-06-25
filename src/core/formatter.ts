@@ -82,6 +82,31 @@ function extractLocaleInfo(
   return { decimalSeparator, groupingSeparator, minusSign, zero, isRTL };
 }
 
+/**
+ * Resolve the effective fraction-digit settings for a field. When decimals are
+ * disallowed, fraction padding/scale is forced to 0 so currency /
+ * fixedDecimalScale never pad ".00" (which the dot-strip would then re-read,
+ * exploding the value). Shared by useNumberFieldState and useNumberField so the
+ * editable display and the on-commit display stay in lockstep.
+ */
+export function resolveEffectiveFractions(opts: {
+  allowDecimal?: boolean;
+  minimumFractionDigits?: number;
+  maximumFractionDigits?: number;
+  fixedDecimalScale?: boolean;
+}): {
+  effMinFrac: number | undefined;
+  effMaxFrac: number | undefined;
+  effFixedScale: boolean | undefined;
+} {
+  const allowDecimal = opts.allowDecimal ?? true;
+  return {
+    effMinFrac: allowDecimal ? opts.minimumFractionDigits : 0,
+    effMaxFrac: allowDecimal ? opts.maximumFractionDigits : 0,
+    effFixedScale: allowDecimal ? opts.fixedDecimalScale : false,
+  };
+}
+
 // ── Factory ───────────────────────────────────────────────────────────────────
 
 export interface FormatterOptions {
