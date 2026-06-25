@@ -1,5 +1,12 @@
 # raqam-docs
 
+## 0.0.10
+
+### Patch Changes
+
+- Updated dependencies [ea4497e]
+  - raqam@0.4.2
+
 ## 0.0.9
 
 ### Patch Changes
