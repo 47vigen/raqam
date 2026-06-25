@@ -1,6 +1,6 @@
 # Raqam 🔢
 
-<img src="assets/raqam-poster.jpg" alt="raqam — the definitive React number input" width="100%" />
+<img src="https://raw.githubusercontent.com/47vigen/raqam/main/assets/raqam-poster.jpg" alt="raqam — the definitive React number input" width="100%" />
 
 **The definitive React number input: live formatting, full i18n, headless, accessible.**
 
