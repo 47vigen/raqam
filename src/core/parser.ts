@@ -157,6 +157,15 @@ export function createParser(opts: ParserOptions = {}): Parser {
       return `${sci[1]}e${sci[2]}`;
     }
 
+    // 7b. MALFORMED exponent: a valid mantissa immediately followed by "e"/"E"
+    // that is not a complete scientific number ("1e", "1e+", "1efoo", "1EUR").
+    // The strip below would silently delete the "e" and yield a wrong value (1),
+    // so return the string with the marker intact — parse()'s exponent branch
+    // then rejects it instead of mis-parsing.
+    if (/^[+-]?(?:\d+(?:\.\d*)?|\.\d+)[eE]/.test(s)) {
+      return s;
+    }
+
     // 7. Strip currency symbol, percent sign, spaces that Intl might prepend/append
     // Strip any remaining non-numeric chars except digits, ".", "-"
     // (handles currency prefixes/suffixes from Intl)

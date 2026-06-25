@@ -226,4 +226,15 @@ describe("createParser — scientific notation", () => {
     expect(p.parse("1e-3").value).toBeNull(); // 0.001 is fractional → rejected
     expect(p.parse("1e3").value).toBe(1000); // integer → allowed
   });
+
+  it("rejects malformed exponents instead of mis-parsing them as the mantissa", () => {
+    const p = createParser({ locale: "en-US" });
+    // Previously these char-stripped the "e" and silently became 1.
+    expect(p.parse("1e+").value).toBeNull();
+    expect(p.parse("1efoo").value).toBeNull();
+    expect(p.parse("1e").value).toBeNull();
+    expect(p.parse("1e2e3").value).toBeNull();
+    // The well-formed form still parses.
+    expect(p.parse("1e3").value).toBe(1000);
+  });
 });
