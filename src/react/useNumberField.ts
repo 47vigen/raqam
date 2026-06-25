@@ -275,7 +275,9 @@ export function useNumberField(
       let composedKnownValue: number | null | undefined;
       if (customParseValue) {
         const result = customParseValue(normalized);
-        if (result.value !== null) composedKnownValue = result.value;
+        // Honor an explicit null too (a custom parser rejecting the composed
+        // text), so the built-in parser can't re-derive a value for it.
+        composedKnownValue = result.value;
         if (result.isIntermediate) {
           displayValue = normalized;
         } else if (result.value !== null && customFormatValue) {
@@ -363,10 +365,11 @@ export function useNumberField(
       // Custom parse/format escape hatch
       if (customParseValue) {
         const result = customParseValue(normalized);
-        // Thread the custom parser's value through to state — otherwise the state
-        // hook re-parses the (custom-formatted) display with the BUILT-IN parser
-        // and silently overrides numberValue.
-        if (result.value !== null) knownValue = result.value;
+        // Thread the custom parser's value through to state — including an
+        // explicit null (a custom parser that rejects input). Otherwise the
+        // state hook re-parses the display with the BUILT-IN parser and could
+        // emit a number the custom parser deliberately rejected.
+        knownValue = result.value;
         if (result.isIntermediate) {
           displayValue = normalized;
         } else if (result.value !== null) {

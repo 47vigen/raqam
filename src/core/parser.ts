@@ -88,6 +88,29 @@ export function createParser(opts: ParserOptions = {}): Parser {
     }
   }
 
+  // Locale's scientific/engineering exponent separator. Most locales use "E"
+  // (handled directly by the exponent regex), but some localize it — ar "أس",
+  // fa "×۱۰^", sv "×10^". Captured (digit-normalized) so it can be mapped to "e"
+  // before exponent handling; otherwise the generic strip would delete it and
+  // glue the exponent digits onto the mantissa ("1.234×10^3" -> "1.234103").
+  let exponentSeparator = "";
+  const notation = opts.formatOptions?.notation;
+  if (notation === "scientific" || notation === "engineering") {
+    try {
+      const sep = normalizeDigits(
+        fmt
+          .formatToParts(1234)
+          .filter((p) => p.type === "exponentSeparator")
+          .map((p) => p.value)
+          .join("")
+      );
+      // Plain ASCII "E"/"e" is already handled by the exponent regex.
+      if (sep && sep !== "e" && sep !== "E") exponentSeparator = sep;
+    } catch {
+      exponentSeparator = "";
+    }
+  }
+
   function getLocaleInfo(): LocaleInfo {
     return fmt.getLocaleInfo();
   }
@@ -103,6 +126,13 @@ export function createParser(opts: ParserOptions = {}): Parser {
     // the "(", which would defeat the index-0-anchored accounting match below and
     // silently drop the negative sign.
     s = s.replace(/[‎‏؜‪-‮⁦-⁩]/g, "");
+
+    // 1a2. Map a localized scientific exponent separator (ar "أس", fa "×۱۰^",
+    // sv "×10^") to "e" so the exponent handling below recognizes it instead of
+    // the generic strip mangling it ("1.234×10^3" -> "1.234103").
+    if (exponentSeparator) {
+      s = s.split(exponentSeparator).join("e");
+    }
 
     // 1b. Remove the currency symbol wholesale (before separators are touched),
     // so a symbol containing ASCII dots — e.g. Arabic "ج.م." — does not leave

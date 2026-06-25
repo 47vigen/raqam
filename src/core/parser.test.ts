@@ -271,6 +271,19 @@ describe("createParser — scientific notation", () => {
     expect(createParser({ locale: "en-US" }).parse("1e2e3").value).toBeNull();
   });
 
+  it("normalizes localized scientific exponent separators (ar/fa/sv)", () => {
+    for (const locale of ["fa-IR", "ar-EG", "sv-SE"]) {
+      const opts = {
+        locale,
+        formatOptions: { notation: "scientific" } as Intl.NumberFormatOptions,
+      };
+      const f = createFormatter(opts);
+      const p = createParser(opts);
+      expect(p.parse(f.format(1234)).value).toBe(1234);
+      expect(p.parse(f.format(-1234)).value).toBe(-1234);
+    }
+  });
+
   it("accepts a complete exponent with a non-digit trailing affordance, rejects junk/markers", () => {
     const p = createParser({ locale: "en-US" });
     expect(p.parse("1e3 km").value).toBe(1000); // trailing unit-like affordance dropped

@@ -1010,6 +1010,31 @@ describe("NumberField custom parseValue while typing", () => {
     const [value] = calls[calls.length - 1] as [number | null, unknown];
     expect(value).toBe(5000);
   });
+
+  it("honors a custom parseValue that rejects input (value: null)", async () => {
+    const user = userEvent.setup();
+    const onValueChange = vi.fn();
+    render(
+      <NumberField.Root
+        locale="en-US"
+        onValueChange={onValueChange}
+        // Rejects "5" specifically; the built-in parser would otherwise read it as 5.
+        parseValue={(s) => ({
+          value: s === "5" ? null : /\d/.test(s) ? parseFloat(s) : null,
+          isIntermediate: false,
+        })}
+      >
+        <NumberField.Input data-testid="input" />
+      </NumberField.Root>
+    );
+    const input = screen.getByTestId("input") as HTMLInputElement;
+    await user.click(input);
+    await user.type(input, "5");
+    // The custom rejection must win — numberValue stays null, not re-parsed to 5.
+    const calls = onValueChange.mock.calls;
+    const [value] = calls[calls.length - 1] as [number | null, unknown];
+    expect(value).toBeNull();
+  });
 });
 
 describe("NumberField cut behavior", () => {
