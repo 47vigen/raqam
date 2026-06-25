@@ -46,7 +46,7 @@ For the **design rationale** behind this architecture — why input is always
 `type="text"`, how the cursor-preservation algorithm works, the i18n/RTL
 strategy, and the full set of ADRs — see [`DEFINITION.md`](DEFINITION.md) (the
 original design spec). For the user-facing API, see [`README.md`](README.md) and
-the [docs site](https://raqam.vercel.app).
+the [docs site](https://raqam.47vigen.com).
 
 ## Testing
 
@@ -122,6 +122,6 @@ npx changeset
 
 - **TypeScript strict mode**: All code must pass `tsc --noEmit` with zero errors
 - **No new dependencies**: The core must remain zero-dep; React is a peer dep only
-- **Bundle size**: Check `pnpm size` — the core must stay under 2 KB gzipped
+- **Bundle size**: Check `pnpm size` — every entry must stay within its [`.size-limit.json`](.size-limit.json) budget (e.g. `raqam/core` ≤ 2.5 KB min+brotli)
 - **Accessibility**: All interactive components must have correct ARIA attributes
 - **i18n**: Never hardcode locale-specific strings — always use `Intl.NumberFormat`

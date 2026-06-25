@@ -9,7 +9,7 @@
 >
 > For the **shipped API and current usage**, see:
 > - [`README.md`](README.md) — quick start + API tables
-> - The docs site — <https://raqam.vercel.app>
+> - The docs site — <https://raqam.47vigen.com>
 > - [`CHANGELOG.md`](CHANGELOG.md) — what actually shipped per release
 >
 > The architecture rationale below (ADRs §4, the cursor engine §6, the i18n/RTL
