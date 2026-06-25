@@ -1,0 +1,130 @@
+---
+title: Advanced Primitives
+description: Lower-level hooks and context exports for design-system authors and custom number field primitives.
+---
+
+
+These exports are intentionally low-level. Most apps should use
+[`useNumberFieldState`](/docs/api/use-number-field-state),
+[`useNumberField`](/docs/api/use-number-field), or the
+[`NumberField` components](/docs/api/components).
+
+## Import
+
+```ts
+import {
+  useControllableState,
+  usePressAndHold,
+  useScrubArea,
+  NumberFieldContext,
+  useNumberFieldContext,
+} from "raqam";
+```
+
+## `useControllableState(options)`
+
+Tiny controlled/uncontrolled state helper used internally by raqam.
+
+```ts
+const [value, setValue] = useControllableState<number | null>({
+  value: controlledValue,
+  defaultValue: 0,
+  onChange: setControlledValue,
+});
+```
+
+Use it when you are building your own wrapper component and want the same
+controlled/uncontrolled semantics as `NumberField.Root`.
+
+## `usePressAndHold(callback, options)`
+
+Returns pointer handlers that fire once immediately, then repeat with
+acceleration while the pointer stays down.
+
+```tsx
+const hold = usePressAndHold(() => stepBy(1), {
+  delay: 400,
+  interval: 200,
+  disabled,
+});
+
+<button type="button" {...hold}>+</button>
+```
+
+Options:
+
+| Option | Default | Description |
+|--------|---------|-------------|
+| `delay` | `400` | Milliseconds before repeating starts. |
+| `interval` | `200` | Initial repeat interval; it accelerates down to a 50ms floor. |
+| `disabled` | `false` | Disables the handlers. |
+
+The returned handlers include `onPointerCancel` and `onLostPointerCapture` (in
+addition to `onPointerDown`/`onPointerUp`/`onPointerLeave`); spreading the whole
+object wires them all. The repeat loop also stops on its own the moment
+`disabled` flips to `true` mid-hold — important because a disabled `<button>`
+stops dispatching the pointer events that would otherwise clear it.
+
+## `useScrubArea(state, options)`
+
+Pointer Lock powered drag-to-adjust behavior for custom scrub handles.
+
+```tsx
+const { scrubAreaProps, isScrubbing } = useScrubArea(state, {
+  direction: "horizontal",
+  pixelSensitivity: 4,
+  label: "Scrub to change value",
+});
+
+<span {...scrubAreaProps}>
+  Drag to adjust {isScrubbing ? "…" : null}
+</span>
+```
+
+Options:
+
+| Option | Default | Description |
+|--------|---------|-------------|
+| `direction` | `"horizontal"` | `"horizontal"`, `"vertical"`, or `"both"`. |
+| `pixelSensitivity` | `4` | Drag distance required for each step. Values below 1 are clamped to 1px/step. |
+| `label` | `"Scrub to change value"` | Accessible label applied to `scrubAreaProps['aria-label']`. |
+
+Return value:
+
+| Key | Description |
+|-----|-------------|
+| `isScrubbing` | Whether pointer lock is active. |
+| `scrubAreaProps` | Props to spread onto the scrub handle element. |
+| `virtualCursor` | Pointer-lock cursor coordinates for custom overlays. |
+
+`scrubAreaProps` carries `role="slider"` plus the slider value ARIA —
+`aria-valuenow` (the current value), `aria-valuemin` / `aria-valuemax` (from the
+field's `minValue` / `maxValue`), `aria-valuetext` (the formatted display), and
+`aria-disabled` — so assistive tech announces the value and range and reflects
+arrow-key / drag updates. Spread the object as-is; don't drop these.
+
+## `NumberFieldContext` / `useNumberFieldContext()`
+
+Context escape hatch for advanced compound components.
+
+```tsx
+function CustomAdornment() {
+  const { state } = useNumberFieldContext();
+  return <span>{state.inputValue}</span>;
+}
+```
+
+The context value (type `NumberFieldContextValue`, also exported from `raqam`) exposes:
+
+| Key | Description |
+|-----|-------------|
+| `state` | Current `NumberFieldState`. |
+| `aria` | Current `NumberFieldAria` prop bags. |
+| `inputRef` | Ref for the active input element. |
+| `props` | Root props passed into `NumberField.Root`. |
+
+<Callout type="warn">
+  These APIs are intended for library authors or advanced composition. Prefer
+  the documented higher-level APIs unless you specifically need custom
+  primitives or design-system wrappers.
+</Callout>

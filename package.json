@@ -1,6 +1,6 @@
 {
   "name": "raqam",
-  "version": "0.3.1",
+  "version": "0.3.2",
   "description": "The definitive React number input: live formatting, full i18n, headless, accessible",
   "type": "module",
   "sideEffects": [
@@ -14,7 +14,7 @@
   "types": "./dist/index.d.ts",
   "author": "47vigen",
   "license": "MIT",
-  "homepage": "https://47vigen.github.io/raqam",
+  "homepage": "https://raqam.vercel.app",
   "repository": {
     "type": "git",
     "url": "https://github.com/47vigen/raqam"
@@ -105,7 +105,8 @@
         "types": "./dist/core.d.cts",
         "default": "./dist/core.cjs"
       }
-    }
+    },
+    "./package.json": "./package.json"
   },
   "files": [
     "dist",
@@ -131,9 +132,12 @@
     "test:e2e": "playwright test -c playwright-ct.config.ts",
     "test:e2e:ui": "playwright test -c playwright-ct.config.ts --ui",
     "test:e2e:debug": "playwright test -c playwright-ct.config.ts --headed --project=chromium",
-    "docs:dev": "cd docs && pnpm astro dev",
-    "docs:build": "pnpm build && cd docs && pnpm astro build",
+    "docs:dev": "pnpm --filter raqam-docs dev",
+    "docs:build": "pnpm build && pnpm --filter raqam-docs build",
     "release:beta": "changeset version --snapshot beta && changeset publish --tag beta"
+  },
+  "engines": {
+    "node": ">=20.9"
   },
   "keywords": [
     "react",

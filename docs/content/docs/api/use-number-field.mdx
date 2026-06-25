@@ -1,0 +1,140 @@
+---
+title: useNumberField
+description: Behavior hook — generates ARIA props, keyboard handlers, and event handlers for a number field.
+---
+
+`useNumberField` takes a state object from `useNumberFieldState` and returns
+prop objects (ARIA attributes, event handlers) ready to spread onto your DOM
+elements.
+
+## Import
+
+```ts
+import { useNumberField } from "raqam";
+// or
+import { useNumberField } from "raqam/react";
+```
+
+## Signature
+
+```ts
+function useNumberField(
+  props: UseNumberFieldProps,
+  state: NumberFieldState,
+  inputRef: React.RefObject<HTMLInputElement | null>
+): NumberFieldAria;
+```
+
+## Props
+
+`UseNumberFieldProps` extends `UseNumberFieldStateOptions` (all state options
+are also accepted here for convenience) plus:
+
+| Prop | Type | Default | Description |
+|------|------|---------|-------------|
+| `label` | `string` | — | Visible label text; used as the `aria-label` fallback. |
+| `incrementLabel` | `string` | `"Increase"` | Accessible label for the increment button (`incrementButtonProps`); set for i18n. |
+| `decrementLabel` | `string` | `"Decrease"` | Accessible label for the decrement button (`decrementButtonProps`); set for i18n. |
+| `id` | `string` | auto | Explicit `id` for the `<input>`. Auto-generated via `useId` if omitted. |
+| `aria-label` | `string` | — | Accessible label when no visible label is used. |
+| `aria-labelledby` | `string` | — | Points to an external label element. |
+| `aria-describedby` | `string` | — | Points to a description element. Wiring `<NumberField.Description>` (or any element spreading `descriptionProps`) is now automatic while it is mounted; a value you pass here is merged with it rather than required — see [Accessibility](/docs/guides/accessibility). |
+| `name` | `string` | — | Enables `hiddenInputProps` for native form submission. |
+| `allowMouseWheel` | `boolean` | `false` | Enables wheel-based increment/decrement. |
+| `copyBehavior` | `"formatted" \| "raw" \| "number"` | `"formatted"` | What goes to the clipboard on Copy/Cut. |
+| `stepHoldDelay` | `number` | `400` | Milliseconds before press-and-hold acceleration starts. |
+| `stepHoldInterval` | `number` | `200` | Milliseconds between accelerated steps. |
+| `onFocus` | `(e: React.FocusEvent<HTMLInputElement>) => void` | — | Called when the input gains focus. |
+| `onBlur` | `(e: React.FocusEvent<HTMLInputElement>) => void` | — | Called when the input loses focus (fires after commit). |
+| `onValueCommitted` | `(value, { reason }) => void` | — | Fires when the value settles — on blur (`reason: "blur"`) or Enter (`reason: "keyboard"`), after formatting + clamping. |
+
+All other props from `UseNumberFieldStateOptions` (`minValue`, `maxValue`,
+`step`, `formatOptions`, etc.) are accepted and forwarded appropriately.
+
+> **Pass the same options to both hooks.** `useNumberField` builds its own
+> formatter and parser, so it needs the same formatting-relevant options you gave
+> `useNumberFieldState` (`locale`, `formatOptions`, `prefix`, `suffix`,
+> `minValue`/`maxValue`, `allowNegative`, `allowDecimal`, fraction-digit
+> overrides). Share one options object between them. The
+> [`NumberField` components](/docs/api/components) handle this wiring for you.
+
+## Return value — `NumberFieldAria`
+
+| Key | Spread onto | Description |
+|-----|------------|-------------|
+| `labelProps` | `<label>` | `htmlFor` wired to the input `id`, plus a `ref` that registers the label so `inputProps`/`groupProps` add `aria-labelledby`. Spread it as-is; don't drop the `ref`. |
+| `groupProps` | wrapping `<div>` | `role="group"`, `aria-labelledby` pointing at the label (only when a label is rendered). |
+| `inputProps` | `<input>` | Full ARIA spinbutton, keyboard/wheel handlers, cursor logic. |
+| `incrementButtonProps` | increment `<button>` | `aria-label="Increase"`, `disabled`, press-and-hold. |
+| `decrementButtonProps` | decrement `<button>` | `aria-label="Decrease"`, `disabled`, press-and-hold. |
+| `hiddenInputProps` | `<input type="hidden">` | `value` = the raw number for form submission. `null` when no `name` is set. |
+| `descriptionProps` | description `<p>` | A generated `id`, plus a `ref` that registers the description so the input's `aria-describedby` auto-wires to it while it is mounted. Spread it as-is; don't drop the `ref`. |
+| `errorMessageProps` | error `<p>` | `role="alert"`, `aria-live="polite"`. Auto-linked via the input's `aria-errormessage` when invalid. |
+
+## Keyboard behaviour (built-in)
+
+| Key | Action |
+|-----|--------|
+| ↑ | Increment by `step` |
+| ↓ | Decrement by `step` |
+| Shift + ↑/↓ | Increment/decrement by `largeStep` |
+| Ctrl/Cmd + ↑/↓ | Increment/decrement by `smallStep` |
+| Page Up | Increment by `largeStep` |
+| Page Down | Decrement by `largeStep` |
+| Home | Jump to `minValue` |
+| End | Jump to `maxValue` |
+| Enter | Commit the current value (fires `onValueCommitted`) |
+| Backspace | Smart deletion (deletes through grouping separators and trailing affordances) |
+
+`Home`/`End` only act when `minValue`/`maxValue` are set. For the full story on
+smart backspace, the smart-decimal caret jump, paste handling, and live
+formatting, see [Formatting & Behavior](/docs/guides/formatting).
+
+The returned `inputProps` also include `data-rtl`, `data-invalid`,
+`data-disabled`, `data-readonly`, and `data-required` attributes so you can
+style state directly in CSS.
+
+## Mouse wheel
+
+The wheel handler uses a **non-passive** event listener (bypassing React's
+passive-by-default `onWheel`) so `preventDefault()` can stop page scroll.
+
+## Clipboard
+
+| `copyBehavior` | Copy produces |
+|----------------|--------------|
+| `"formatted"` (default) | Browser default — the selected text |
+| `"raw"` | `String(numberValue)` — plain ASCII digits |
+| `"number"` | Alias of `"raw"` |
+
+## Example
+
+```tsx
+import { useRef } from "react";
+import { useNumberFieldState, useNumberField } from "raqam";
+
+function SpinnerInput({ label }: { label: string }) {
+  const ref = useRef<HTMLInputElement>(null);
+
+  const state = useNumberFieldState({ locale: "en-US", defaultValue: 0 });
+
+  const {
+    labelProps,
+    groupProps,
+    inputProps,
+    incrementButtonProps,
+    decrementButtonProps,
+  } = useNumberField({ locale: "en-US" }, state, ref);
+
+  return (
+    <div>
+      <label {...labelProps}>{label}</label>
+      <div {...groupProps} style={{ display: "flex" }}>
+        <button {...decrementButtonProps}>−</button>
+        <input {...inputProps} ref={ref} />
+        <button {...incrementButtonProps}>+</button>
+      </div>
+    </div>
+  );
+}
+```

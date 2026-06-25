@@ -1,0 +1,85 @@
+---
+title: Overview
+description: The definitive React number input — live formatting, full i18n, headless, accessible.
+---
+
+import { Pencil, Languages, Puzzle, CircleCheck } from "lucide-react";
+
+**raqam** is a headless React number input with live, cursor-stable formatting, full
+internationalization, and first-class accessibility — in a ~1.8 KB core.
+
+Every other React number input forces a trade-off. raqam eliminates all four.
+
+<Cards>
+  <Card icon={<Pencil />} title="Live formatting" href="/docs/guides/formatting">
+    Formats as you type using the same cursor-boundary algorithm as
+    react-number-format — no flicker, cursor stays in place.
+  </Card>
+  <Card icon={<Languages />} title="Full i18n" href="/docs/guides/locales">
+    Accepts Persian ۱۲۳, Arabic ١٢٣, Bengali ১২৩, Devanagari १२३, Thai ๑๒๓.
+    Separators extracted dynamically via `Intl.NumberFormat`.
+  </Card>
+  <Card icon={<Puzzle />} title="Headless" href="/docs/api/components">
+    Zero styles. Bring Tailwind, CSS Modules, or any design system. Compound
+    components or raw hooks — your choice.
+  </Card>
+  <Card icon={<CircleCheck />} title="Accessible" href="/docs/guides/accessibility">
+    WAI-ARIA `spinbutton` role, `aria-valuenow/min/max/valuetext`, keyboard
+    navigation (↑ ↓ PgUp PgDn Home End), focus management.
+  </Card>
+</Cards>
+
+## Install
+
+```package-install
+raqam
+```
+
+**Peer dependencies:** React 18 or 19.
+
+## Thirty-second example
+
+```tsx
+import { NumberField } from "raqam";
+
+export function PriceInput() {
+  return (
+    <NumberField.Root
+      locale="en-US"
+      name="price"
+      formatOptions={{ style: "currency", currency: "USD" }}
+      defaultValue={0}
+      minValue={0}
+    >
+      <NumberField.Label>Price</NumberField.Label>
+      <NumberField.Group>
+        <NumberField.Decrement>−</NumberField.Decrement>
+        <NumberField.Input />
+        <NumberField.Increment>+</NumberField.Increment>
+      </NumberField.Group>
+      <NumberField.HiddenInput />
+    </NumberField.Root>
+  );
+}
+```
+
+Type `1234` → see `$1,234.00`. Type `1234.5` → see `$1,234.5` (live, no flicker).
+
+## Where to next
+
+- [Getting Started](/docs/getting-started) — install and build your first field.
+- [Playground](/docs/playground) — try raqam live in the browser.
+- [API Reference](/docs/api/use-number-field-state) — hooks, components, presets, utilities.
+- [Guides](/docs/guides/formatting) — formatting, locales, RTL, Next.js, accessibility.
+- [Recipes](/docs/recipes/react-hook-form) — react-hook-form, Formik, Tailwind, shadcn/ui, and more.
+
+## Bundle size
+
+Measured min + brotli (including dependencies), enforced in CI:
+
+| Import             | Size     | CI budget |
+| ------------------ | -------- | --------- |
+| `raqam/core`       | ~1.84 KB | 2 KB      |
+| `raqam` (full)     | ~8.3 KB  | 12 KB     |
+| `raqam/react`      | ~8.1 KB  | 10 KB     |
+| `raqam/locales/fa` | 189 B    | 0.3 KB    |
