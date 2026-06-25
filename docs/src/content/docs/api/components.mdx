@@ -175,9 +175,12 @@ Wraps any element; dragging over it adjusts the value via Pointer Lock API.
 ```
 
 The element renders as `role="slider"` with `tabIndex={0}`, so it is keyboard
-accessible: arrow keys (←/→ or ↑/↓) step the value while it is focused. The CSS
-`cursor` reflects the axis (`ew-resize` / `ns-resize` / `move`), and
-`data-scrubbing=""` is set while a pointer-lock drag is active.
+accessible: arrow keys (←/→ or ↑/↓) step the value while it is focused. It also
+exposes the slider value ARIA — `aria-valuenow`, `aria-valuemin`,
+`aria-valuemax`, `aria-valuetext` (the formatted value), and `aria-disabled` — so
+assistive tech announces the current value and range. The CSS `cursor` reflects
+the axis (`ew-resize` / `ns-resize` / `move`), and `data-scrubbing=""` is set
+while a pointer-lock drag is active.
 
 `pixelSensitivity` values below `1` are clamped to `1`.
 

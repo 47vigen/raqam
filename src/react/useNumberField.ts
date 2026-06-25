@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useId, useMemo, useRef, useState } from "react";
 import { computeNewCursorPosition } from "../core/cursor.js";
-import { createFormatter } from "../core/formatter.js";
+import { createFormatter, resolveEffectiveFractions } from "../core/formatter.js";
 import { localizeDigits, normalizeDigits } from "../core/normalizer.js";
 import { createParser } from "../core/parser.js";
 import type { NumberFieldAria, NumberFieldState, UseNumberFieldProps } from "../core/types.js";
@@ -24,12 +24,19 @@ function escapeRegex(s: string): string {
  * Returns null when `s` is not one of these forms.
  */
 function parseSpecialNotation(s: string): number | null {
+  // Bound length before the regexes (this runs on attacker-controllable paste
+  // text). The patterns are also de-ambiguated below so they match in linear
+  // time — together this closes the ReDoS on the paste path.
+  if (s.length > 256) return null;
   const t = s.replace(/\s+/g, "");
-  if (/^[+-]?(?:\d+\.?\d*|\.\d+)[eE][+-]?\d+$/.test(t)) {
+  // Note the de-ambiguated mantissa `\d+(?:\.\d*)?|\.\d+` (no overlapping
+  // `\d+\.?\d*` alternation) — the old form backtracked quadratically on a long
+  // failing input.
+  if (/^[+-]?(?:\d+(?:\.\d*)?|\.\d+)[eE][+-]?\d+$/.test(t)) {
     const n = Number(t);
     return Number.isFinite(n) ? n : null;
   }
-  const m = t.match(/^([+-]?(?:\d+\.?\d*|\.\d+))(k|m|b|t|thousand|million|billion|trillion)$/i);
+  const m = t.match(/^([+-]?(?:\d+(?:\.\d*)?|\.\d+))(k|m|b|t|thousand|million|billion|trillion)$/i);
   if (m) {
     const mult: Record<string, number> = {
       k: 1e3,
@@ -101,10 +108,14 @@ export function useNumberField(
   const errorId = `${inputId}-error`;
 
   // ── Formatter & parser (kept in sync with state's) ──────────────────────
-  // Mirror the state hook: drop fraction padding when decimals are disallowed.
-  const effMinFrac = allowDecimal ? minimumFractionDigits : 0;
-  const effMaxFrac = allowDecimal ? maximumFractionDigits : 0;
-  const effFixedScale = allowDecimal ? fixedDecimalScale : false;
+  // Same effective-fraction resolution as the state hook, via one shared helper,
+  // so the live-typing and on-commit displays can never drift apart.
+  const { effMinFrac, effMaxFrac, effFixedScale } = resolveEffectiveFractions({
+    allowDecimal,
+    minimumFractionDigits,
+    maximumFractionDigits,
+    fixedDecimalScale,
+  });
 
   const formatter = useMemo(
     () =>
@@ -259,8 +270,12 @@ export function useNumberField(
       const normalized = normalizeDigits(composedValue);
 
       let displayValue: string;
+      // Thread the custom parser's value through to state — otherwise the state
+      // hook re-derives it with the BUILT-IN parser, discarding the custom result.
+      let composedKnownValue: number | null | undefined;
       if (customParseValue) {
         const result = customParseValue(normalized);
+        if (result.value !== null) composedKnownValue = result.value;
         if (result.isIntermediate) {
           displayValue = normalized;
         } else if (result.value !== null && customFormatValue) {
@@ -297,7 +312,7 @@ export function useNumberField(
       }
 
       state._setLastChangeReason("input");
-      state.setInputValue(displayValue);
+      state.setInputValue(displayValue, composedKnownValue);
     },
     [formatter, liveFormatter, parser, liveFormat, state, customFormatValue, customParseValue]
   );
@@ -348,6 +363,10 @@ export function useNumberField(
       // Custom parse/format escape hatch
       if (customParseValue) {
         const result = customParseValue(normalized);
+        // Thread the custom parser's value through to state — otherwise the state
+        // hook re-parses the (custom-formatted) display with the BUILT-IN parser
+        // and silently overrides numberValue.
+        if (result.value !== null) knownValue = result.value;
         if (result.isIntermediate) {
           displayValue = normalized;
         } else if (result.value !== null) {
@@ -443,6 +462,10 @@ export function useNumberField(
       e.preventDefault();
       const text = e.clipboardData.getData("text/plain");
       if (!text) return;
+      // Discard absurdly long clipboard payloads up front — no legitimate number
+      // is this long, and it bounds every downstream scan/regex on this
+      // attacker-controllable input.
+      if (text.length > 1000) return;
 
       // 1. Strip common currency symbols (global currencies)
       const stripped = text.replace(/[€$£¥₹₺₽﷼฿₩¢₦₨₪₫₱]/g, "").trim();

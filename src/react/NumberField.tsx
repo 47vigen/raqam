@@ -190,7 +190,10 @@ const Root = forwardRef<HTMLDivElement, NumberFieldRootProps>(function NumberFie
       if (onValueChangeRef.current && stateRef.current) {
         onValueChangeRef.current(value, {
           reason: stateRef.current._getLastChangeReason(),
-          formattedValue: stateRef.current.inputValue,
+          // _getLatestDisplay (not .inputValue) — at onChange time `inputValue`
+          // state still holds the previous render's value; the ref is updated
+          // synchronously before the emission, so it matches `value`.
+          formattedValue: stateRef.current._getLatestDisplay(),
         });
       }
     },

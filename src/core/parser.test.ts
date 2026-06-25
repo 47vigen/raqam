@@ -153,3 +153,77 @@ describe("createParser — accounting format (parentheses = negative)", () => {
     expect(parser.parse(formatted).value).toBe(-1234.56);
   });
 });
+
+describe("createParser — ReDoS / input length cap", () => {
+  const parser = createParser({ locale: "en-US" });
+
+  it("rejects inputs longer than 256 chars", () => {
+    expect(parser.parse("9".repeat(300))).toEqual({
+      value: null,
+      isValid: false,
+      isIntermediate: false,
+    });
+  });
+
+  it("rejects a long pathological multi-dot string and stays fast", () => {
+    const pathological = "9".repeat(50000) + "." + "9".repeat(50000) + ".";
+    const start = Date.now();
+    const r = parser.parse(pathological);
+    expect(r.value).toBeNull();
+    expect(r.isValid).toBe(false);
+    expect(Date.now() - start).toBeLessThan(1000);
+  });
+
+  it("still parses a normal ≤256-char number", () => {
+    expect(Number.isFinite(parser.parse("9".repeat(40)).value as number)).toBe(true);
+  });
+});
+
+describe("createParser — RTL accounting sign (bidi-mark fix)", () => {
+  const opts = {
+    locale: "fa-IR",
+    formatOptions: {
+      style: "currency" as const,
+      currency: "IRR",
+      currencySign: "accounting" as const,
+    },
+  };
+  const parser = createParser(opts);
+  const fmt = createFormatter(opts);
+
+  it("preserves the negative sign through a format/parse round-trip", () => {
+    expect(parser.parse(fmt.format(-1234)).value).toBe(-1234);
+  });
+
+  it("round-trips a positive value", () => {
+    expect(parser.parse(fmt.format(1234)).value).toBe(1234);
+  });
+});
+
+describe("createParser — scientific notation", () => {
+  const parser = createParser({ locale: "en-US" });
+
+  it("parses uppercase exponent", () => {
+    expect(parser.parse("1.234E3").value).toBe(1234);
+  });
+
+  it("parses integer mantissa exponent", () => {
+    expect(parser.parse("1e3").value).toBe(1000);
+  });
+
+  it("parses negative exponent", () => {
+    expect(parser.parse("1.5e-3").value).toBe(0.0015);
+  });
+
+  it("round-trips a scientific-notation formatted value", () => {
+    const fmt = createFormatter({ locale: "en-US", formatOptions: { notation: "scientific" } });
+    expect(parser.parse(fmt.format(1234)).value).toBe(1234);
+  });
+
+  it("rejects a fractional exponent value when decimals are disallowed", () => {
+    const p = createParser({ locale: "en-US", allowDecimal: false });
+    expect(p.parse("5e-1").value).toBeNull(); // 0.5 is fractional → rejected
+    expect(p.parse("1e-3").value).toBeNull(); // 0.001 is fractional → rejected
+    expect(p.parse("1e3").value).toBe(1000); // integer → allowed
+  });
+});

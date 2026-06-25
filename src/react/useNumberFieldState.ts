@@ -1,5 +1,5 @@
 import { useCallback, useMemo, useRef, useState } from "react";
-import { createFormatter } from "../core/formatter.js";
+import { createFormatter, resolveEffectiveFractions } from "../core/formatter.js";
 import { createParser } from "../core/parser.js";
 import type { ChangeReason, NumberFieldState, UseNumberFieldStateOptions } from "../core/types.js";
 import { useControllableState } from "./useControllableState.js";
@@ -60,12 +60,16 @@ export function useNumberFieldState(options: UseNumberFieldStateOptions): Number
     formatValue: customFormatValue,
   } = options;
 
-  // When decimals are disallowed, force the formatter to 0 fraction digits so
+  // When decimals are disallowed, fraction padding/scale is forced to 0 so
   // currency / fixedDecimalScale never pad ".00" (which the dot-strip would then
-  // re-read, exploding the value). See XF-2.
-  const effMinFrac = allowDecimal ? minimumFractionDigits : 0;
-  const effMaxFrac = allowDecimal ? maximumFractionDigits : 0;
-  const effFixedScale = allowDecimal ? fixedDecimalScale : false;
+  // re-read, exploding the value). Shared with useNumberField via one helper so
+  // the editable and on-commit displays can never drift apart.
+  const { effMinFrac, effMaxFrac, effFixedScale } = resolveEffectiveFractions({
+    allowDecimal,
+    minimumFractionDigits,
+    maximumFractionDigits,
+    fixedDecimalScale,
+  });
 
   // ── Formatter & parser (re-created only when deps change) ──────────────────
   const formatter = useMemo(
@@ -145,6 +149,13 @@ export function useNumberFieldState(options: UseNumberFieldStateOptions): Number
 
   const [inputValue, setInputValueRaw] = useState<string>(initialDisplay);
 
+  // Mirror of the display string, updated SYNCHRONOUSLY before each setNumberValue
+  // (which fires onChange). `inputValue` state only reflects the *previous* render
+  // at onChange time, so consumers reading the formatted value via onValueChange
+  // must read this ref to get the value that matches the just-emitted number.
+  const latestDisplayRef = useRef<string>(initialDisplay);
+  const _getLatestDisplay = useCallback((): string => latestDisplayRef.current, []);
+
   // Track last formatted value so we can sync controlled value changes
   const lastFormattedRef = useRef<string>(initialDisplay);
 
@@ -215,6 +226,7 @@ export function useNumberFieldState(options: UseNumberFieldStateOptions): Number
       const finite = ev != null && Number.isFinite(ev);
       const formatted = finite ? formatDisplay(ev as number) : "";
       lastFormattedRef.current = formatted;
+      latestDisplayRef.current = formatted;
       setInputValueRaw(formatted);
       setRawValueState(finite ? String(ev) : null);
     }
@@ -232,6 +244,7 @@ export function useNumberFieldState(options: UseNumberFieldStateOptions): Number
       if (formatted !== inputValue) {
         setInputValueRaw(formatted);
         lastFormattedRef.current = formatted;
+        latestDisplayRef.current = formatted;
       }
     }
   }
@@ -261,6 +274,7 @@ export function useNumberFieldState(options: UseNumberFieldStateOptions): Number
         if (maxValue !== undefined && value > maxValue) return;
       }
 
+      latestDisplayRef.current = val;
       setInputValueRaw(val);
       lastEmittedRef.current = value;
       setNumberValue(value);
@@ -302,18 +316,20 @@ export function useNumberFieldState(options: UseNumberFieldStateOptions): Number
   // ── setNumberValue (external) ──────────────────────────────────────────────
   const setNumericValue = useCallback(
     (val: number | null) => {
+      // Compute the display and update latestDisplayRef BEFORE setNumberValue, so
+      // the onChange it triggers reports the matching formatted value (not the
+      // previous render's).
+      const formatted = val != null ? formatDisplay(val) : "";
+      latestDisplayRef.current = formatted;
       lastEmittedRef.current = val;
       setNumberValue(val);
+      setInputValueRaw(formatted);
+      lastFormattedRef.current = formatted;
       if (val != null) {
-        const formatted = formatDisplay(val);
-        setInputValueRaw(formatted);
-        lastFormattedRef.current = formatted;
         const rawStr = String(val);
         setRawValueState(rawStr);
         onRawChange?.(rawStr);
       } else {
-        setInputValueRaw("");
-        lastFormattedRef.current = "";
         setRawValueState(null);
         onRawChange?.(null);
       }
@@ -325,6 +341,7 @@ export function useNumberFieldState(options: UseNumberFieldStateOptions): Number
   // ── commit (called on blur) ────────────────────────────────────────────────
   const commit = useCallback((): number | null => {
     if (numberValue == null) {
+      latestDisplayRef.current = "";
       setInputValueRaw("");
       lastFormattedRef.current = "";
       return null;
@@ -339,6 +356,7 @@ export function useNumberFieldState(options: UseNumberFieldStateOptions): Number
     if (Object.is(clamped, -0)) clamped = 0;
 
     const formatted = formatDisplay(clamped);
+    latestDisplayRef.current = formatted;
     setInputValueRaw(formatted);
     lastFormattedRef.current = formatted;
 
@@ -441,6 +459,7 @@ export function useNumberFieldState(options: UseNumberFieldStateOptions): Number
     validationError,
     _setLastChangeReason,
     _getLastChangeReason,
+    _getLatestDisplay,
     setInputValue,
     setNumberValue: setNumericValue,
     commit,

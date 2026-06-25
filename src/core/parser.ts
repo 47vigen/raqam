@@ -2,6 +2,9 @@ import { createFormatter } from "./formatter.js";
 import { normalizeDigits } from "./normalizer.js";
 import type { LocaleInfo, ParseResult } from "./types.js";
 
+/** Upper bound on input length accepted by parse(); see the guard in parse(). */
+const MAX_PARSE_INPUT = 256;
+
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
 /**
@@ -95,6 +98,12 @@ export function createParser(opts: ParserOptions = {}): Parser {
     // 1. Normalise non-Latin digits to ASCII
     let s = normalizeDigits(raw);
 
+    // 1a. Strip Unicode bidi control marks. RTL locales' accounting currency
+    // format prepends an invisible LRM/RLM (e.g. fa-IR: "‎(ریال ۱٬۲۳۴)") before
+    // the "(", which would defeat the index-0-anchored accounting match below and
+    // silently drop the negative sign.
+    s = s.replace(/[‎‏؜‪-‮⁦-⁩]/g, "");
+
     // 1b. Remove the currency symbol wholesale (before separators are touched),
     // so a symbol containing ASCII dots — e.g. Arabic "ج.م." — does not leave
     // stray "." that the numeric validation would reject.
@@ -137,6 +146,17 @@ export function createParser(opts: ParserOptions = {}): Parser {
       s = s.split("−").join("-");
     }
 
+    // 7a. Preserve a clean trailing exponent (e.g. "1.234E3") so scientific
+    // notation round-trips through parse(): the generic char-strip below would
+    // delete the "E", gluing mantissa and exponent into a wrong finite value
+    // ("1.234E3" -> "1.2343"). Returns early so the minus-collapse (step 8) does
+    // not strip a negative exponent's sign. The mantissa carries at most one
+    // leading "-", so no collapse is needed.
+    const sci = s.match(/^(-?(?:\d+(?:\.\d*)?|\.\d+))[eE]([+-]?\d+)$/);
+    if (sci) {
+      return `${sci[1]}e${sci[2]}`;
+    }
+
     // 7. Strip currency symbol, percent sign, spaces that Intl might prepend/append
     // Strip any remaining non-numeric chars except digits, ".", "-"
     // (handles currency prefixes/suffixes from Intl)
@@ -155,6 +175,14 @@ export function createParser(opts: ParserOptions = {}): Parser {
 
   function parse(input: string): ParseResult {
     if (!input || input.trim() === "") {
+      return { value: null, isValid: false, isIntermediate: false };
+    }
+
+    // Bound the input length before any regex/scan work. Real numeric input is
+    // short; an unbounded attacker-controlled string (e.g. a crafted paste)
+    // could otherwise drive worst-case backtracking. 256 chars is far beyond any
+    // legitimate number (≈250-digit precision) yet keeps all scans trivial.
+    if (input.length > MAX_PARSE_INPUT) {
       return { value: null, isValid: false, isIntermediate: false };
     }
 
@@ -188,9 +216,34 @@ export function createParser(opts: ParserOptions = {}): Parser {
       return { value: null, isValid: false, isIntermediate: false };
     }
 
+    // Scientific / exponent notation, preserved by stripAffordances (step 7a).
+    // Handle it explicitly: Number() reads it, but the plain validation regex
+    // below would reject the "e". A malformed exponent is rejected rather than
+    // silently corrupted.
+    if (/[eE]/.test(stripped)) {
+      if (!/^-?(?:\d+(?:\.\d*)?|\.\d+)[eE][+-]?\d+$/.test(stripped)) {
+        return { value: null, isValid: false, isIntermediate: false };
+      }
+      let n = Number(stripped);
+      if (!Number.isFinite(n)) {
+        return { value: null, isValid: false, isIntermediate: false };
+      }
+      // A fractional exponent value (e.g. "5e-1" = 0.5) has no literal "." to
+      // trip the allowDecimal guard above, so reject it here for parity with the
+      // plain-decimal path when decimals are disallowed.
+      if (!allowDecimal && !Number.isInteger(n)) {
+        return { value: null, isValid: false, isIntermediate: false };
+      }
+      if (Object.is(n, -0)) n = 0;
+      if (isPercent && n !== 0) n = Number((n / 100).toPrecision(15));
+      return { value: n, isValid: true, isIntermediate: false };
+    }
+
     // Accept integers and decimals with the dot either trailing ("1.") or
-    // leading (".5") so partially-typed values still yield a numeric value.
-    if (!/^-?(?:\d+\.?\d*|\.\d+)$/.test(stripped)) {
+    // leading (".5") so partially-typed values still yield a numeric value. The
+    // pattern is written without an ambiguous alternation so it matches in linear
+    // time (the empty / lone-"-" / lone-"." cases are handled above).
+    if (!/^-?\d*(?:\.\d*)?$/.test(stripped)) {
       return { value: null, isValid: false, isIntermediate: false };
     }
 
