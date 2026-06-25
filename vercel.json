@@ -2,6 +2,6 @@
   "$schema": "https://openapi.vercel.sh/vercel.json",
   "framework": "nextjs",
   "installCommand": "pnpm install --frozen-lockfile",
-  "buildCommand": "pnpm build && pnpm --filter raqam-docs build",
-  "outputDirectory": "docs/.next"
+  "buildCommand": "pnpm --filter raqam-docs build",
+  "outputDirectory": ".next"
 }

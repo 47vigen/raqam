@@ -5,7 +5,7 @@
   "type": "module",
   "scripts": {
     "dev": "next dev",
-    "build": "next build",
+    "build": "node scripts/build-lib.mjs && next build",
     "start": "next start",
     "postinstall": "fumadocs-mdx",
     "typecheck": "fumadocs-mdx && next typegen && tsc --noEmit",
