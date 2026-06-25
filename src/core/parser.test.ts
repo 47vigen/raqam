@@ -271,10 +271,16 @@ describe("createParser — scientific notation", () => {
     expect(createParser({ locale: "en-US" }).parse("1e2e3").value).toBeNull();
   });
 
-  it("accepts a complete exponent with a non-digit trailing affordance, rejects digit junk", () => {
+  it("accepts a complete exponent with a non-digit trailing affordance, rejects junk/markers", () => {
     const p = createParser({ locale: "en-US" });
     expect(p.parse("1e3 km").value).toBe(1000); // trailing unit-like affordance dropped
     expect(p.parse("1e3%").value).toBe(1000); // trailing sign dropped (non-percent field)
+    expect(p.parse("1e3 meters").value).toBe(1000); // affordance may contain "e"
     expect(p.parse("1e3e4").value).toBeNull(); // remainder has a digit → not a clean exponent
+    // remainder starting with an exponent-syntax char is a malformed exponent
+    expect(p.parse("1e3e").value).toBeNull();
+    expect(p.parse("1e3E").value).toBeNull();
+    expect(p.parse("1e3+").value).toBeNull();
+    expect(p.parse("1e3-").value).toBeNull();
   });
 });

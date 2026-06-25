@@ -157,14 +157,16 @@ export function createParser(opts: ParserOptions = {}): Parser {
     // notation round-trips through parse(): the generic char-strip below would
     // delete the "E", gluing mantissa and exponent into a wrong value
     // ("1.234E3" -> "1.2343"). A complete exponent may be followed by trailing
-    // affordances that carry no further digits — a percent sign ("5E1%"), a unit
-    // (" km"), etc. — which are dropped here (parse() re-applies percent scaling
-    // via isPercent). A digit in the remainder means it is NOT a clean exponent
-    // (e.g. "1e2e3"), so fall through to the malformed guard / strip. Returning
-    // early also skips the minus-collapse (step 8) so a negative exponent's sign
-    // survives; the mantissa carries at most one leading "-".
+    // affordances — a percent sign ("5E1%"), a unit (" km", " meters"), etc. —
+    // which are dropped here (parse() re-applies percent scaling via isPercent).
+    // The remainder is only treated as an affordance when it carries no further
+    // digit AND does not start with an exponent-syntax char (e/E/+/-): a real
+    // affordance never starts with one, whereas "1e3e", "1e3+", "1e2e3" are
+    // malformed/continued exponents that must fall through to the guard / strip.
+    // Returning early also skips the minus-collapse (step 8) so a negative
+    // exponent's sign survives; the mantissa carries at most one leading "-".
     const sci = st.match(/^(-?(?:\d+(?:\.\d*)?|\.\d+))[eE]([+-]?\d+)(.*)$/);
-    if (sci && !/\d/.test(sci[3])) {
+    if (sci && !/\d/.test(sci[3]) && !/^[eE+\-]/.test(sci[3])) {
       return `${sci[1]}e${sci[2]}`;
     }
 
