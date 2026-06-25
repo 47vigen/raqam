@@ -18,6 +18,29 @@ function escapeRegex(s: string): string {
 }
 
 /**
+ * Track whether at least one element registered through the returned ref
+ * callback is currently mounted. Lets `aria-labelledby` / `aria-describedby`
+ * point at the label / description only while one truly exists — for any render
+ * path (built-in component, custom primitive, or headless) — instead of
+ * dangling at an element that isn't rendered. Ref-counted so multiple mounts and
+ * StrictMode's double-invoke settle to the correct flag.
+ */
+function useMountedFlag(): [boolean, React.RefCallback<HTMLElement>] {
+  const countRef = useRef(0);
+  const [mounted, setMounted] = useState(false);
+  const ref = useCallback<React.RefCallback<HTMLElement>>((node) => {
+    if (node) {
+      countRef.current += 1;
+      setMounted(true);
+    } else if (countRef.current > 0) {
+      countRef.current -= 1;
+      if (countRef.current === 0) setMounted(false);
+    }
+  }, []);
+  return [mounted, ref];
+}
+
+/**
  * The focused element resolved through the node's *root* — `document` in the
  * light DOM, or the containing `ShadowRoot` when the field is inside a shadow
  * tree (where `document.activeElement` only reports the host). Falls back to
@@ -28,6 +51,19 @@ function activeElementWithin(node: Element | null): Element | null {
   if (root && "activeElement" in root) return root.activeElement;
   return typeof document !== "undefined" ? document.activeElement : null;
 }
+
+// Magnitude suffixes for compact-notation paste ("1.5K", "3.4M"). Module-scoped
+// so it isn't rebuilt on every paste.
+const MAGNITUDE_MULTIPLIERS: Record<string, number> = {
+  k: 1e3,
+  thousand: 1e3,
+  m: 1e6,
+  million: 1e6,
+  b: 1e9,
+  billion: 1e9,
+  t: 1e12,
+  trillion: 1e12,
+};
 
 /**
  * Parse scientific ("1e3", "1.23E4") and compact ("1.5K", "3.4M") notation that
@@ -50,17 +86,7 @@ function parseSpecialNotation(s: string): number | null {
   }
   const m = t.match(/^([+-]?(?:\d+(?:\.\d*)?|\.\d+))(k|m|b|t|thousand|million|billion|trillion)$/i);
   if (m) {
-    const mult: Record<string, number> = {
-      k: 1e3,
-      thousand: 1e3,
-      m: 1e6,
-      million: 1e6,
-      b: 1e9,
-      billion: 1e9,
-      t: 1e12,
-      trillion: 1e12,
-    };
-    const n = Number(m[1]) * mult[m[2].toLowerCase()]!;
+    const n = Number(m[1]) * MAGNITUDE_MULTIPLIERS[m[2].toLowerCase()]!;
     return Number.isFinite(n) ? n : null;
   }
   return null;
@@ -117,6 +143,10 @@ export function useNumberField(
     notation !== "scientific" &&
     notation !== "engineering";
 
+  // Serialize formatOptions once per render — it feeds four useMemo dependency
+  // arrays below and JSON.stringify is not free for non-trivial option objects.
+  const formatOptionsKey = JSON.stringify(formatOptions);
+
   const { step = 1, largeStep = step * 10, smallStep = step * 0.1 } = state.options;
 
   const autoId = useId();
@@ -147,7 +177,7 @@ export function useNumberField(
         fixedDecimalScale: effFixedScale,
       }),
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [locale, JSON.stringify(formatOptions), prefix, suffix, effMinFrac, effMaxFrac, effFixedScale]
+    [locale, formatOptionsKey, prefix, suffix, effMinFrac, effMaxFrac, effFixedScale]
   );
 
   // Live-typing formatter: keeps grouping + currency symbol but drops the
@@ -173,7 +203,7 @@ export function useNumberField(
         fixedDecimalScale: false,
       }),
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [locale, JSON.stringify(formatOptions), prefix, suffix, liveMaxFrac]
+    [locale, formatOptionsKey, prefix, suffix, liveMaxFrac]
   );
 
   const parser = useMemo(
@@ -187,7 +217,7 @@ export function useNumberField(
         suffix,
       }),
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [locale, JSON.stringify(formatOptions), allowNegative, allowDecimal, prefix, suffix]
+    [locale, formatOptionsKey, allowNegative, allowDecimal, prefix, suffix]
   );
 
   // Re-format `value` so its integer part groups while the EXACT typed fraction
@@ -221,7 +251,7 @@ export function useNumberField(
       }).format(value);
     },
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [formatter, locale, JSON.stringify(formatOptions), prefix, suffix, effMaxFrac]
+    [formatter, locale, formatOptionsKey, prefix, suffix, effMaxFrac]
   );
 
   // ── Cursor engine ────────────────────────────────────────────────────────
@@ -875,17 +905,7 @@ export function useNumberField(
   // registers/unregisters as it mounts, so `aria-labelledby` only points at the
   // label when it truly exists — for any render path (built-in component, custom
   // primitive, or fully headless), not just one that runs a specific effect.
-  const labelCountRef = useRef(0);
-  const [hasLabel, setHasLabel] = useState(false);
-  const labelRef = useCallback<React.RefCallback<HTMLElement>>((node) => {
-    if (node) {
-      labelCountRef.current += 1;
-      setHasLabel(true);
-    } else if (labelCountRef.current > 0) {
-      labelCountRef.current -= 1;
-      if (labelCountRef.current === 0) setHasLabel(false);
-    }
-  }, []);
+  const [hasLabel, labelRef] = useMountedFlag();
 
   // Fall back to the internal label id only when the consumer hasn't supplied
   // their own accessible name AND a label is actually rendered. Defaulting to
@@ -898,17 +918,7 @@ export function useNumberField(
   // aria-describedby points at <NumberField.Description> only while one is
   // actually mounted — avoiding a dangling reference (the same class of bug fixed
   // for aria-labelledby) when no description is rendered.
-  const descCountRef = useRef(0);
-  const [hasDescription, setHasDescription] = useState(false);
-  const descriptionRef = useCallback<React.RefCallback<HTMLElement>>((node) => {
-    if (node) {
-      descCountRef.current += 1;
-      setHasDescription(true);
-    } else if (descCountRef.current > 0) {
-      descCountRef.current -= 1;
-      if (descCountRef.current === 0) setHasDescription(false);
-    }
-  }, []);
+  const [hasDescription, descriptionRef] = useMountedFlag();
 
   // Combine the consumer's own aria-describedby with the internal description id
   // (when present) so the description is announced by assistive technology.

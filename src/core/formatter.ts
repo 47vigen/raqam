@@ -4,20 +4,24 @@ import type { FormatResult, LocaleInfo } from "./types.js";
 
 // Locally declared so the dev-only gate type-checks without @types/node.
 declare const process: { env?: Record<string, string | undefined> } | undefined;
-const IS_PRODUCTION =
-  typeof process !== "undefined" &&
-  typeof process.env !== "undefined" &&
-  process.env.NODE_ENV === "production";
 
 let warnedInvalidOptions = false;
-/** Warn once (dev only) when invalid formatOptions/locale force a fallback. */
+/**
+ * Warn once (dev only) when invalid formatOptions/locale force a fallback. The
+ * `process.env.NODE_ENV !== "production"` token is statically replaced and the
+ * branch dead-code-eliminated by production bundlers that define NODE_ENV
+ * (webpack, Vite, Next, esbuild --minify/--define) — and by raqam's own minified
+ * build — so this message ships zero bytes in production while still surfacing in
+ * development. The `typeof process` / `process.env` guards keep it crash-safe
+ * under raw-browser ESM (no `process`) and partial `process` shims (no `env`);
+ * both sit on the eliminated side of the token, so they cost nothing in prod.
+ */
 function warnInvalidFormatOptions(err: unknown): void {
-  if (IS_PRODUCTION || warnedInvalidOptions) return;
-  warnedInvalidOptions = true;
-  const detail = err instanceof Error ? err.message : String(err);
-  console.warn(
-    `[raqam] Invalid formatOptions/locale — falling back to a safe formatter. Check your \`locale\` and \`formatOptions\` (e.g. style:'currency' requires a \`currency\` code). Original error: ${detail}`
-  );
+  if (typeof process !== "undefined" && process.env && process.env.NODE_ENV !== "production") {
+    if (warnedInvalidOptions) return;
+    warnedInvalidOptions = true;
+    console.warn("[raqam] Invalid formatOptions/locale — using a safe fallback.", err);
+  }
 }
 
 /** Probe value that will surface decimal AND grouping parts */

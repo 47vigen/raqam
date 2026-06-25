@@ -7,7 +7,7 @@ description: Teaches the raqam React number-input library — headless NumberFie
 
 ## Canonical sources (read these for full detail)
 
-- **Docs site:** [https://raqam.vercel.app](https://raqam.vercel.app)
+- **Docs site:** [https://raqam.47vigen.com](https://raqam.47vigen.com)
 - **README (quick API tables):** [https://github.com/47vigen/raqam/blob/main/README.md](https://github.com/47vigen/raqam/blob/main/README.md)
 - **Package:** [https://www.npmjs.com/package/raqam](https://www.npmjs.com/package/raqam)
 - **Issues:** [https://github.com/47vigen/raqam/issues](https://github.com/47vigen/raqam/issues)
@@ -41,24 +41,24 @@ npm install raqam
 | `raqam/locales/<lang>` | Side-effect plugins: `fa`, `ar`, `bn`, `hi`, `th` (tree-shakeable) |
 | `raqam/locales` | Registers all built-in locale plugins |
 
-Bundle sizes and export map: see README and [Getting Started](https://raqam.vercel.app/docs/getting-started).
+Bundle sizes and export map: see README and [Getting Started](https://raqam.47vigen.com/docs/getting-started).
 
 ## Choose an API
 
 **Compound components (default)** — less boilerplate, context-wired parts:
 
-- Guide: [NumberField components](https://raqam.vercel.app/docs/api/components)
+- Guide: [NumberField components](https://raqam.47vigen.com/docs/api/components)
 - `NumberField.Root` + `Label`, `Group`, `Input`, `Increment`/`Decrement`, `Description`, `ErrorMessage`, `HiddenInput`, `ScrubArea`, `Formatted`, etc.
 
 **Hook API** — full control over DOM and styling:
 
-- [useNumberFieldState](https://raqam.vercel.app/docs/api/use-number-field-state) — state machine (`inputValue`, `numberValue`, `rawValue`, validation, scrubbing).
-- [useNumberField](https://raqam.vercel.app/docs/api/use-number-field) — ARIA props + handlers; requires `inputRef` to the `<input>`.
+- [useNumberFieldState](https://raqam.47vigen.com/docs/api/use-number-field-state) — state machine (`inputValue`, `numberValue`, `rawValue`, validation, scrubbing).
+- [useNumberField](https://raqam.47vigen.com/docs/api/use-number-field) — ARIA props + handlers; requires `inputRef` to the `<input>`.
 
 **Lower-level helpers** — only when building custom primitives or non-React formatting:
 
-- [Core utilities](https://raqam.vercel.app/docs/api/core-utilities) — `createFormatter`, `createParser`, `normalizeDigits`, `registerLocale`, caret helpers.
-- [Advanced primitives](https://raqam.vercel.app/docs/api/advanced-primitives) — `useControllableState`, `usePressAndHold`, `useScrubArea`, `NumberFieldContext`, `useNumberFieldContext`.
+- [Core utilities](https://raqam.47vigen.com/docs/api/core-utilities) — `createFormatter`, `createParser`, `normalizeDigits`, `registerLocale`, caret helpers.
+- [Advanced primitives](https://raqam.47vigen.com/docs/api/advanced-primitives) — `useControllableState`, `usePressAndHold`, `useScrubArea`, `NumberFieldContext`, `useNumberFieldContext`.
 
 ## Recommended agent path
 
@@ -78,52 +78,52 @@ Avoid steering users toward undocumented or stale APIs when a documented path al
 ## Behavior essentials
 
 - **`locale`:** BCP 47 tag; drives `Intl.NumberFormat` / parsing.
-- **`formatOptions`:** standard `Intl.NumberFormatOptions`; use **`presets`** for common cases — [Format presets](https://raqam.vercel.app/docs/api/presets).
-- **Controlled vs uncontrolled:** `value`/`onChange` vs `defaultValue`. `onChange` fires whenever the parsed numeric value changes; use `onValueChange` when you need `{ reason, formattedValue }` metadata, or **`onValueCommitted`** when you only want the settled value (fires on blur → `reason:"blur"`, or Enter → `reason:"keyboard"`). See [Getting Started](https://raqam.vercel.app/docs/getting-started).
+- **`formatOptions`:** standard `Intl.NumberFormatOptions`; use **`presets`** for common cases — [Format presets](https://raqam.47vigen.com/docs/api/presets).
+- **Controlled vs uncontrolled:** `value`/`onChange` vs `defaultValue`. `onChange` fires whenever the parsed numeric value changes; use `onValueChange` when you need `{ reason, formattedValue }` metadata, or **`onValueCommitted`** when you only want the settled value (fires on blur → `reason:"blur"`, or Enter → `reason:"keyboard"`). See [Getting Started](https://raqam.47vigen.com/docs/getting-started).
 - **Change reasons** (`onValueChange` details.reason): `"input"`, `"clear"` (edit empties the field), `"paste"`, `"keyboard"`, `"increment"`, `"decrement"`, `"wheel"`, `"scrub"`, `"blur"`.
 - **Constraints:** `minValue`, `maxValue`, `step`, `largeStep` (default `step×10`), `smallStep` (default `step×0.1`), `clampBehavior` (`"blur"` clamp on blur / `"strict"` reject out-of-range keystrokes / `"none"`), `allowOutOfRange` (keep + commit out-of-range, set `aria-invalid`), `allowNegative`, `allowDecimal`, `fixedDecimalScale` (needs `maximumFractionDigits`).
-- **Live formatting:** formats on every keystroke with a cursor-safe algorithm; **intermediate** values (`1.`, `12.50`, `-`, `.5`) are kept as typed and only normalized on blur. **`compact`/`scientific`/`engineering` notation format on blur** (not live). Percent fields store the *fraction* (`42%` ⇒ `0.42`). Full details: [Formatting & Behavior](https://raqam.vercel.app/docs/guides/formatting).
+- **Live formatting:** formats on every keystroke with a cursor-safe algorithm; **intermediate** values (`1.`, `12.50`, `-`, `.5`) are kept as typed and only normalized on blur. **`compact`/`scientific`/`engineering` notation format on blur** (not live). Percent fields store the *fraction* (`42%` ⇒ `0.42`). Full details: [Formatting & Behavior](https://raqam.47vigen.com/docs/guides/formatting).
 - **Paste:** strips currency symbols, parses scientific/compact (`1e3`, `1.5K`) and accounting parens `(1,234)` ⇒ negative; unparseable pastes are discarded.
 - **Clipboard:** `copyBehavior` `"formatted"` (default) / `"raw"` / `"number"`.
 - **Wheel:** opt-in `allowMouseWheel`; only nudges while the input is focused.
 - **Validation:** `validate` returning `true` / error string; pairs with `NumberField.ErrorMessage`.
 - **Precision / finance:** `onRawChange` and `state.rawValue` give the unformatted, precision-preserving numeric string (affordances stripped, typed trailing zeros kept; falls back to the canonical numeric string for percent/compact/scientific/unit/custom `formatValue`); optional custom `formatValue` / `parseValue`.
-- **Display-only:** [useNumberFieldFormat](https://raqam.vercel.app/docs/api/use-number-field-format) on the client; **`createFormatter` from `raqam/server`** on the server.
+- **Display-only:** [useNumberFieldFormat](https://raqam.47vigen.com/docs/api/use-number-field-format) on the client; **`createFormatter` from `raqam/server`** on the server.
 - **Forms:** for native form submission, put `name` on `NumberField.Root` and render `NumberField.HiddenInput`.
 - **Hook API gotcha:** when using `useNumberFieldState` + `useNumberField` directly, pass the **same formatting options to both** (the behavior hook builds its own formatter/parser). The `NumberField.*` components do this for you.
 
 ## Locales and RTL
 
-- [Locales & i18n](https://raqam.vercel.app/docs/guides/locales) — switching locales, plugins table, `registerLocale` escape hatch.
-- [RTL support](https://raqam.vercel.app/docs/guides/rtl) — RTL layout and behavior.
+- [Locales & i18n](https://raqam.47vigen.com/docs/guides/locales) — switching locales, plugins table, `registerLocale` escape hatch.
+- [RTL support](https://raqam.47vigen.com/docs/guides/rtl) — RTL layout and behavior.
 
 ## Next.js
 
-- [Next.js App Router](https://raqam.vercel.app/docs/guides/nextjs) — `"use client"` for inputs; `raqam/server` for Server Components and edge-safe formatting.
+- [Next.js App Router](https://raqam.47vigen.com/docs/guides/nextjs) — `"use client"` for inputs; `raqam/server` for Server Components and edge-safe formatting.
 
 ## Forms and UI stacks
 
-- [react-hook-form](https://raqam.vercel.app/docs/recipes/react-hook-form)
-- [Formik](https://raqam.vercel.app/docs/recipes/formik)
-- [Tailwind CSS](https://raqam.vercel.app/docs/recipes/tailwind)
-- [shadcn/ui](https://raqam.vercel.app/docs/recipes/shadcn-ui)
-- [Financial app patterns](https://raqam.vercel.app/docs/recipes/financial)
-- [Persian e-commerce](https://raqam.vercel.app/docs/recipes/persian-ecommerce)
+- [react-hook-form](https://raqam.47vigen.com/docs/recipes/react-hook-form)
+- [Formik](https://raqam.47vigen.com/docs/recipes/formik)
+- [Tailwind CSS](https://raqam.47vigen.com/docs/recipes/tailwind)
+- [shadcn/ui](https://raqam.47vigen.com/docs/recipes/shadcn-ui)
+- [Financial app patterns](https://raqam.47vigen.com/docs/recipes/financial)
+- [Persian e-commerce](https://raqam.47vigen.com/docs/recipes/persian-ecommerce)
 
 ## Styling and UX
 
 - Root **`data-*` attributes** for CSS include `data-focused`, `data-invalid`, `data-disabled`, `data-readonly`, `data-required`, and `data-scrubbing`.
 - The input also exposes **`data-rtl`** for RTL-specific styling.
-- **ScrubArea:** pointer-lock drag to change value — [components doc](https://raqam.vercel.app/docs/api/components).
+- **ScrubArea:** pointer-lock drag to change value — [components doc](https://raqam.47vigen.com/docs/api/components).
 - **`render` prop** on compound parts to swap elements without `asChild`.
 
 ## Accessibility
 
-- [Accessibility guide](https://raqam.vercel.app/docs/guides/accessibility) — `spinbutton`, keyboard table, focus model (Tab targets input; steppers use arrow keys).
+- [Accessibility guide](https://raqam.47vigen.com/docs/guides/accessibility) — `spinbutton`, keyboard table, focus model (Tab targets input; steppers use arrow keys).
 
 ## Interactive exploration
 
-- [Playground](https://raqam.vercel.app/docs/playground)
+- [Playground](https://raqam.47vigen.com/docs/playground)
 
 ## When the model needs more detail
 
@@ -136,19 +136,19 @@ Avoid steering users toward undocumented or stale APIs when a documented path al
 
 | Topic | URL |
 |--------|-----|
-| Getting Started | [https://raqam.vercel.app/docs/getting-started](https://raqam.vercel.app/docs/getting-started) |
-| Playground | [https://raqam.vercel.app/docs/playground](https://raqam.vercel.app/docs/playground) |
-| useNumberFieldState | [https://raqam.vercel.app/docs/api/use-number-field-state](https://raqam.vercel.app/docs/api/use-number-field-state) |
-| useNumberField | [https://raqam.vercel.app/docs/api/use-number-field](https://raqam.vercel.app/docs/api/use-number-field) |
-| NumberField components | [https://raqam.vercel.app/docs/api/components](https://raqam.vercel.app/docs/api/components) |
-| Formatting & Behavior | [https://raqam.vercel.app/docs/guides/formatting](https://raqam.vercel.app/docs/guides/formatting) |
-| useNumberFieldFormat | [https://raqam.vercel.app/docs/api/use-number-field-format](https://raqam.vercel.app/docs/api/use-number-field-format) |
-| Format presets | [https://raqam.vercel.app/docs/api/presets](https://raqam.vercel.app/docs/api/presets) |
-| Core utilities | [https://raqam.vercel.app/docs/api/core-utilities](https://raqam.vercel.app/docs/api/core-utilities) |
-| Advanced primitives | [https://raqam.vercel.app/docs/api/advanced-primitives](https://raqam.vercel.app/docs/api/advanced-primitives) |
-| Locales & i18n | [https://raqam.vercel.app/docs/guides/locales](https://raqam.vercel.app/docs/guides/locales) |
-| RTL | [https://raqam.vercel.app/docs/guides/rtl](https://raqam.vercel.app/docs/guides/rtl) |
-| Next.js | [https://raqam.vercel.app/docs/guides/nextjs](https://raqam.vercel.app/docs/guides/nextjs) |
-| Accessibility | [https://raqam.vercel.app/docs/guides/accessibility](https://raqam.vercel.app/docs/guides/accessibility) |
+| Getting Started | [https://raqam.47vigen.com/docs/getting-started](https://raqam.47vigen.com/docs/getting-started) |
+| Playground | [https://raqam.47vigen.com/docs/playground](https://raqam.47vigen.com/docs/playground) |
+| useNumberFieldState | [https://raqam.47vigen.com/docs/api/use-number-field-state](https://raqam.47vigen.com/docs/api/use-number-field-state) |
+| useNumberField | [https://raqam.47vigen.com/docs/api/use-number-field](https://raqam.47vigen.com/docs/api/use-number-field) |
+| NumberField components | [https://raqam.47vigen.com/docs/api/components](https://raqam.47vigen.com/docs/api/components) |
+| Formatting & Behavior | [https://raqam.47vigen.com/docs/guides/formatting](https://raqam.47vigen.com/docs/guides/formatting) |
+| useNumberFieldFormat | [https://raqam.47vigen.com/docs/api/use-number-field-format](https://raqam.47vigen.com/docs/api/use-number-field-format) |
+| Format presets | [https://raqam.47vigen.com/docs/api/presets](https://raqam.47vigen.com/docs/api/presets) |
+| Core utilities | [https://raqam.47vigen.com/docs/api/core-utilities](https://raqam.47vigen.com/docs/api/core-utilities) |
+| Advanced primitives | [https://raqam.47vigen.com/docs/api/advanced-primitives](https://raqam.47vigen.com/docs/api/advanced-primitives) |
+| Locales & i18n | [https://raqam.47vigen.com/docs/guides/locales](https://raqam.47vigen.com/docs/guides/locales) |
+| RTL | [https://raqam.47vigen.com/docs/guides/rtl](https://raqam.47vigen.com/docs/guides/rtl) |
+| Next.js | [https://raqam.47vigen.com/docs/guides/nextjs](https://raqam.47vigen.com/docs/guides/nextjs) |
+| Accessibility | [https://raqam.47vigen.com/docs/guides/accessibility](https://raqam.47vigen.com/docs/guides/accessibility) |
 
-Recipes are linked from the [docs homepage](https://raqam.vercel.app) sidebar.
+Recipes are linked from the [docs homepage](https://raqam.47vigen.com) sidebar.

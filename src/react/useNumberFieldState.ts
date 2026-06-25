@@ -93,6 +93,11 @@ export function useNumberFieldState(options: UseNumberFieldStateOptions): Number
     fixedDecimalScale,
   });
 
+  // Serialize formatOptions once per render — it feeds two useMemo dependency
+  // arrays and the runtime-reformat key below, and JSON.stringify is not free
+  // for non-trivial option objects.
+  const formatOptionsKey = JSON.stringify(formatOptions ?? {});
+
   // ── Formatter & parser (re-created only when deps change) ──────────────────
   const formatter = useMemo(
     () =>
@@ -106,16 +111,7 @@ export function useNumberFieldState(options: UseNumberFieldStateOptions): Number
         fixedDecimalScale: effFixedScale,
       }),
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [
-      locale,
-      // JSON-serialize to detect object identity changes
-      JSON.stringify(formatOptions),
-      prefix,
-      suffix,
-      effMinFrac,
-      effMaxFrac,
-      effFixedScale,
-    ]
+    [locale, formatOptionsKey, prefix, suffix, effMinFrac, effMaxFrac, effFixedScale]
   );
 
   const parser = useMemo(
@@ -129,7 +125,7 @@ export function useNumberFieldState(options: UseNumberFieldStateOptions): Number
         suffix,
       }),
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [locale, JSON.stringify(formatOptions), allowNegative, allowDecimal, prefix, suffix]
+    [locale, formatOptionsKey, allowNegative, allowDecimal, prefix, suffix]
   );
 
   // ── Controlled/uncontrolled numeric value ──────────────────────────────────
@@ -257,7 +253,7 @@ export function useNumberFieldState(options: UseNumberFieldStateOptions): Number
   // ── Reformat the display when locale / formatOptions change at runtime ──────
   // When the field is not being actively edited, a locale or format change must
   // re-render the existing value in the new format (e.g. switching en-US → de-DE).
-  const formatKey = `${locale ?? ""}|${JSON.stringify(formatOptions ?? {})}|${prefix ?? ""}|${suffix ?? ""}|${effMinFrac ?? ""}|${effMaxFrac ?? ""}|${effFixedScale ?? ""}`;
+  const formatKey = `${locale ?? ""}|${formatOptionsKey}|${prefix ?? ""}|${suffix ?? ""}|${effMinFrac ?? ""}|${effMaxFrac ?? ""}|${effFixedScale ?? ""}`;
   const prevFormatKeyRef = useRef(formatKey);
   if (prevFormatKeyRef.current !== formatKey) {
     prevFormatKeyRef.current = formatKey;

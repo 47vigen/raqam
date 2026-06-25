@@ -16,7 +16,7 @@
 | Truly headless | ✅ | ✅ | ❌ | ✅ |
 | i18n digit input (Persian ۱۲۳, Arabic ١٢٣…) | ❌ | ✅ | ❌ | ✅ |
 | WAI-ARIA spinbutton | ✅ | ✅✅ | ⚠️ | ✅✅ |
-| Bundle size | ~10 KB | ~30 KB | ~60 KB | **~2.4 KB core** |
+| Bundle size | ~10 KB | ~30 KB | ~60 KB | **~2.2 KB core** |
 
 No existing package combines all four. raqam does.
 
@@ -303,7 +303,7 @@ State management hook — returns `NumberFieldState`.
 | `required` | `boolean` | `false` | Mark the field as required |
 
 Also accepts `maximumFractionDigits`, `minimumFractionDigits`, `formatValue`,
-and `parseValue` — see the [full options reference](https://raqam.vercel.app/docs/api/use-number-field-state).
+and `parseValue` — see the [full options reference](https://raqam.47vigen.com/docs/api/use-number-field-state).
 
 ### `useNumberField(props, state, inputRef)`
 
@@ -318,7 +318,7 @@ every `useNumberFieldState` option plus the behavior-only props below:
 | `stepHoldInterval` | `number` | `200` | Press-and-hold repeat interval (ms) |
 | `label` / `name` / `id` / `aria-*` | `string` | — | Labelling, form name, and id wiring |
 
-→ Full reference: [`useNumberField`](https://raqam.vercel.app/docs/api/use-number-field).
+→ Full reference: [`useNumberField`](https://raqam.47vigen.com/docs/api/use-number-field).
 
 ### `NumberField.Root` extra props
 
@@ -368,9 +368,9 @@ Measured min + brotli (including dependencies), enforced in CI via
 
 | Entry | Size | CI budget |
 |-------|------|-----------|
-| `raqam/core` | ~2.37 KB | 2.5 KB |
-| `raqam` (hooks + components) | ~9.84 KB | 12 KB |
-| `raqam/react` | ~9.69 KB | 10 KB |
+| `raqam/core` | ~2.23 KB | 2.5 KB |
+| `raqam` (hooks + components) | ~9.62 KB | 12 KB |
+| `raqam/react` | ~9.42 KB | 10 KB |
 | `raqam/locales/fa` | 196 B | 0.3 KB |
 
 ## 📄 License

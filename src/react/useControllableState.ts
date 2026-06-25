@@ -3,15 +3,6 @@ import { useCallback, useRef, useState } from "react";
 // Locally declared so the dev-only gate type-checks without @types/node.
 declare const process: { env?: Record<string, string | undefined> } | undefined;
 
-// Bundlers statically replace `process.env.NODE_ENV`, so the controlled/
-// uncontrolled warning below is dropped from production builds. Falls back to
-// "not production" when `process` is absent (raw-browser ESM), where surfacing a
-// dev-style warning is acceptable.
-const IS_PRODUCTION =
-  typeof process !== "undefined" &&
-  typeof process.env !== "undefined" &&
-  process.env.NODE_ENV === "production";
-
 interface UseControllableStateOptions<T> {
   value?: T;
   defaultValue?: T;
@@ -51,12 +42,19 @@ export function useControllableState<T>({
   const isControlled = value !== undefined;
   const wasControlled = useRef(isControlled);
 
-  if (!IS_PRODUCTION && wasControlled.current !== isControlled) {
-    console.warn(
-      `[raqam] Component is changing from ${
-        wasControlled.current ? "controlled" : "uncontrolled"
-      } to ${isControlled ? "controlled" : "uncontrolled"}. Decide between using a controlled or uncontrolled component and don't switch.`
-    );
+  // Dev-only warning. The `process.env.NODE_ENV !== "production"` token is
+  // statically replaced and the branch eliminated by production bundlers that
+  // define NODE_ENV (and by raqam's minified build), so this ships zero bytes in
+  // production. The `typeof process` / `process.env` guards keep it crash-safe
+  // under raw-browser ESM and partial `process` shims — this runs on every
+  // render, so a throw here would break rendering, not just an error path.
+  if (
+    typeof process !== "undefined" &&
+    process.env &&
+    process.env.NODE_ENV !== "production" &&
+    wasControlled.current !== isControlled
+  ) {
+    console.warn("[raqam] Switching between controlled and uncontrolled. Pick one and keep it.");
   }
 
   const [internalValue, setInternalValue] = useState<T | undefined>(defaultValue);

@@ -21,14 +21,14 @@ function isAccepted(ch: string, info: LocaleInfo): boolean {
 }
 
 /**
- * Count how many "accepted" characters appear before position `cursor`
- * in `str` (after normalising non-Latin digits to ASCII).
+ * Count how many "accepted" characters appear before position `cursor` in `str`.
+ * `str` must already be digit-normalised (ASCII); the sole caller normalises once
+ * and shares the result, so re-normalising here would just repeat that scan.
  */
 function countAcceptedBefore(str: string, cursor: number, info: LocaleInfo): number {
-  const normalised = normalizeDigits(str);
   let count = 0;
-  for (let i = 0; i < cursor && i < normalised.length; i++) {
-    if (isAccepted(normalised[i]!, info)) count++;
+  for (let i = 0; i < cursor && i < str.length; i++) {
+    if (isAccepted(str[i]!, info)) count++;
   }
   return count;
 }
