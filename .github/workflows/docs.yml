@@ -26,8 +26,6 @@ jobs:
       - name: Install dependencies
         run: pnpm install
 
-      - name: Build raqam (docs dependency)
-        run: pnpm build
-
+      # The docs build script builds the raqam library (tsup) before next build.
       - name: Build docs (Next.js)
         run: pnpm --filter raqam-docs build
