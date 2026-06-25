@@ -195,7 +195,10 @@ export function createParser(opts: ParserOptions = {}): Parser {
     // malformed/continued exponents that must fall through to the guard / strip.
     // Returning early also skips the minus-collapse (step 8) so a negative
     // exponent's sign survives; the mantissa carries at most one leading "-".
-    const sci = st.match(/^(-?(?:\d+(?:\.\d*)?|\.\d+))[eE]([+-]?\d+)(.*)$/);
+    // The mantissa allows a leading "+" too: signDisplay "always"/"exceptZero"
+    // formats positives as "+1.234E3"; Number() accepts the "+" and the regular
+    // path already tolerates a leading "+" (the strip removes it).
+    const sci = st.match(/^([+-]?(?:\d+(?:\.\d*)?|\.\d+))[eE]([+-]?\d+)(.*)$/);
     if (sci && !/\d/.test(sci[3]) && !/^[eE+\-]/.test(sci[3])) {
       return `${sci[1]}e${sci[2]}`;
     }
@@ -273,7 +276,7 @@ export function createParser(opts: ParserOptions = {}): Parser {
     // below would reject the "e". A malformed exponent is rejected rather than
     // silently corrupted.
     if (/[eE]/.test(stripped)) {
-      if (!/^-?(?:\d+(?:\.\d*)?|\.\d+)[eE][+-]?\d+$/.test(stripped)) {
+      if (!/^[+-]?(?:\d+(?:\.\d*)?|\.\d+)[eE][+-]?\d+$/.test(stripped)) {
         return { value: null, isValid: false, isIntermediate: false };
       }
       let n = Number(stripped);

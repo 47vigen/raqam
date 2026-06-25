@@ -284,6 +284,19 @@ describe("createParser — scientific notation", () => {
     }
   });
 
+  it("accepts a leading + in scientific notation (signDisplay always/exceptZero)", () => {
+    const opts = {
+      locale: "en-US",
+      formatOptions: { notation: "scientific", signDisplay: "always" } as Intl.NumberFormatOptions,
+    };
+    const f = createFormatter(opts);
+    const p = createParser(opts);
+    expect(p.parse(f.format(1234)).value).toBe(1234); // "+1.234E3"
+    expect(p.parse(f.format(-1234)).value).toBe(-1234);
+    // a typed leading "+" is also accepted
+    expect(createParser({ locale: "en-US" }).parse("+1e3").value).toBe(1000);
+  });
+
   it("accepts a complete exponent with a non-digit trailing affordance, rejects junk/markers", () => {
     const p = createParser({ locale: "en-US" });
     expect(p.parse("1e3 km").value).toBe(1000); // trailing unit-like affordance dropped
