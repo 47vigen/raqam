@@ -1,5 +1,5 @@
-import { createContext, useContext } from "react";
 import type { RefObject } from "react";
+import { createContext, useContext } from "react";
 import type { NumberFieldAria, NumberFieldState, UseNumberFieldProps } from "../core/types.js";
 
 export interface NumberFieldContextValue {

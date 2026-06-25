@@ -199,7 +199,7 @@ export function createParser(opts: ParserOptions = {}): Parser {
     // formats positives as "+1.234E3"; Number() accepts the "+" and the regular
     // path already tolerates a leading "+" (the strip removes it).
     const sci = st.match(/^([+-]?(?:\d+(?:\.\d*)?|\.\d+))[eE]([+-]?\d+)(.*)$/);
-    if (sci && !/\d/.test(sci[3]) && !/^[eE+\-]/.test(sci[3])) {
+    if (sci && !/\d/.test(sci[3]) && !/^[eE+-]/.test(sci[3])) {
       return `${sci[1]}e${sci[2]}`;
     }
 
@@ -215,7 +215,7 @@ export function createParser(opts: ParserOptions = {}): Parser {
     // 7. Strip currency symbol, percent sign, spaces that Intl might prepend/append
     // Strip any remaining non-numeric chars except digits, ".", "-"
     // (handles currency prefixes/suffixes from Intl)
-    s = s.replace(/[^\d.\-]/g, "").trim();
+    s = s.replace(/[^\d.-]/g, "").trim();
 
     // 8. Collapse minus signs to a single leading one, so stray minuses typed in
     // the middle ("1-23") or doubled ("--5") never invalidate the whole value.

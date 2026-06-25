@@ -1,7 +1,7 @@
+export type { NumberFieldContextValue } from "./context.js";
+export { NumberFieldContext, useNumberFieldContext } from "./context.js";
+export { NumberField } from "./NumberField.js";
 export { useControllableState } from "./useControllableState.js";
-export { useNumberFieldState } from "./useNumberFieldState.js";
 export { useNumberField } from "./useNumberField.js";
 export { useNumberFieldFormat } from "./useNumberFieldFormat.js";
-export { NumberField } from "./NumberField.js";
-export { NumberFieldContext, useNumberFieldContext } from "./context.js";
-export type { NumberFieldContextValue } from "./context.js";
+export { useNumberFieldState } from "./useNumberFieldState.js";
