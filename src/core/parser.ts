@@ -146,21 +146,25 @@ export function createParser(opts: ParserOptions = {}): Parser {
       s = s.split("−").join("-");
     }
 
-    // Run the exponent checks on a copy with surrounding whitespace removed —
-    // the regexes are anchored, so " 1e3 " would otherwise miss and get its "E"
+    // Run the exponent checks on a copy with surrounding whitespace removed — the
+    // regexes are anchored, so " 1e3 " would otherwise miss and get its "E"
     // char-stripped to "13". Only leading/trailing spaces are trimmed (not
     // internal ones), so "1.5 each" stays a space-separated word, not "1.5each"
     // (which would look like a malformed exponent).
     const st = s.trim();
 
-    // 7a. Preserve a clean trailing exponent (e.g. "1.234E3") so scientific
+    // 7a. Preserve a clean exponent (e.g. "1.234E3") so scientific/engineering
     // notation round-trips through parse(): the generic char-strip below would
-    // delete the "E", gluing mantissa and exponent into a wrong finite value
-    // ("1.234E3" -> "1.2343"). Returns early so the minus-collapse (step 8) does
-    // not strip a negative exponent's sign. The mantissa carries at most one
-    // leading "-", so no collapse is needed.
-    const sci = st.match(/^(-?(?:\d+(?:\.\d*)?|\.\d+))[eE]([+-]?\d+)$/);
-    if (sci) {
+    // delete the "E", gluing mantissa and exponent into a wrong value
+    // ("1.234E3" -> "1.2343"). A complete exponent may be followed by trailing
+    // affordances that carry no further digits — a percent sign ("5E1%"), a unit
+    // (" km"), etc. — which are dropped here (parse() re-applies percent scaling
+    // via isPercent). A digit in the remainder means it is NOT a clean exponent
+    // (e.g. "1e2e3"), so fall through to the malformed guard / strip. Returning
+    // early also skips the minus-collapse (step 8) so a negative exponent's sign
+    // survives; the mantissa carries at most one leading "-".
+    const sci = st.match(/^(-?(?:\d+(?:\.\d*)?|\.\d+))[eE]([+-]?\d+)(.*)$/);
+    if (sci && !/\d/.test(sci[3])) {
       return `${sci[1]}e${sci[2]}`;
     }
 

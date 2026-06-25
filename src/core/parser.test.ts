@@ -246,4 +246,35 @@ describe("createParser — scientific notation", () => {
     // a malformed exponent — it strips to the leading number.
     expect(p.parse("1.5 each").value).toBe(1.5);
   });
+
+  it("parses scientific/engineering percent values (e.g. \"5E1%\")", () => {
+    const sci = {
+      locale: "en-US",
+      formatOptions: { style: "percent", notation: "scientific" } as Intl.NumberFormatOptions,
+    };
+    const p = createParser(sci);
+    expect(p.parse("5E1%").value).toBe(0.5);
+    expect(p.parse("5E0%").value).toBe(0.05);
+    expect(p.parse("-5E1%").value).toBe(-0.5);
+    // round-trips through the formatter
+    expect(p.parse(createFormatter(sci).format(0.5)).value).toBe(0.5);
+    // engineering notation too
+    const pe = createParser({
+      locale: "en-US",
+      formatOptions: { style: "percent", notation: "engineering" },
+    });
+    expect(pe.parse("150E0%").value).toBe(1.5);
+    // regular percent + malformed-exponent rejection remain unaffected
+    expect(
+      createParser({ locale: "en-US", formatOptions: { style: "percent" } }).parse("50%").value
+    ).toBe(0.5);
+    expect(createParser({ locale: "en-US" }).parse("1e2e3").value).toBeNull();
+  });
+
+  it("accepts a complete exponent with a non-digit trailing affordance, rejects digit junk", () => {
+    const p = createParser({ locale: "en-US" });
+    expect(p.parse("1e3 km").value).toBe(1000); // trailing unit-like affordance dropped
+    expect(p.parse("1e3%").value).toBe(1000); // trailing sign dropped (non-percent field)
+    expect(p.parse("1e3e4").value).toBeNull(); // remainder has a digit → not a clean exponent
+  });
 });
