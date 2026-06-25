@@ -596,4 +596,27 @@ describe("useNumberFieldState — numeric & config robustness", () => {
     act(() => result.current.commit());
     expect(result.current.numberValue).toBe(42);
   });
+
+  it("commit treats a non-finite controlled value as empty (never emits NaN/Infinity)", () => {
+    const onChange = vi.fn();
+    const { result } = renderHook(() =>
+      useNumberFieldState({ locale: "en-US", value: Number.NaN, onChange })
+    );
+    let committed: number | null = 0;
+    act(() => {
+      committed = result.current.commit();
+    });
+    expect(committed).toBeNull();
+    for (const [emitted] of onChange.mock.calls) {
+      if (emitted !== null) expect(Number.isFinite(emitted)).toBe(true);
+    }
+  });
+
+  it("exposes sanitized bounds on state.options (consumers don't see NaN/Infinity)", () => {
+    const { result } = renderHook(() =>
+      useNumberFieldState({ locale: "en-US", minValue: Number.NaN, maxValue: Number.POSITIVE_INFINITY })
+    );
+    expect(result.current.options.minValue).toBeUndefined();
+    expect(result.current.options.maxValue).toBeUndefined();
+  });
 });

@@ -352,6 +352,18 @@ describe("NumberField.ScrubArea", () => {
     expect(onChange).not.toHaveBeenCalled();
   });
 
+  it("omits aria-valuemin/max on the scrub area for non-finite bounds", () => {
+    render(
+      <NumberField.Root defaultValue={50} minValue={Number.NaN} maxValue={Number.POSITIVE_INFINITY}>
+        <NumberField.ScrubArea data-testid="scrub-area">Drag</NumberField.ScrubArea>
+        <NumberField.Input />
+      </NumberField.Root>
+    );
+    const scrub = screen.getByTestId("scrub-area");
+    expect(scrub).not.toHaveAttribute("aria-valuemin");
+    expect(scrub).not.toHaveAttribute("aria-valuemax");
+  });
+
   it("exits pointer lock when the scrub area unmounts mid-scrub", () => {
     setupPointerLockMock();
     const { unmount } = render(

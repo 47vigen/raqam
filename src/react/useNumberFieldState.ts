@@ -365,7 +365,10 @@ export function useNumberFieldState(options: UseNumberFieldStateOptions): Number
 
   // ── commit (called on blur) ────────────────────────────────────────────────
   const commit = useCallback((): number | null => {
-    if (numberValue == null) {
+    // Treat empty AND non-finite (NaN/Infinity from a bad controlled/default
+    // value) as empty on commit, so blur/Enter never returns or emits a
+    // non-finite value even though the field renders empty.
+    if (numberValue == null || !Number.isFinite(numberValue)) {
       latestDisplayRef.current = "";
       setInputValueRaw("");
       lastFormattedRef.current = "";
@@ -503,6 +506,10 @@ export function useNumberFieldState(options: UseNumberFieldStateOptions): Number
       step,
       largeStep: resolvedLargeStep,
       smallStep: resolvedSmallStep,
+      // Expose the sanitized bounds so every consumer (e.g. useScrubArea's
+      // aria-valuemin/max) sees cleaned values, not raw NaN/Infinity.
+      minValue,
+      maxValue,
     },
   };
 }
