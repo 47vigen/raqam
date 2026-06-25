@@ -1,0 +1,180 @@
+---
+title: Core Utilities
+description: Low-level formatting, parsing, locale registration, and caret helpers from raqam/core and raqam/server.
+---
+
+
+`raqam/core` exposes the formatter/parser engine underneath the React APIs.
+`raqam/server` is an alias of the same entrypoint, useful when you want to make
+the server-safe intent explicit in RSC, SSR, or Edge code.
+
+## Import
+
+```ts
+import {
+  createFormatter,
+  createParser,
+  normalizeDigits,
+  registerLocale,
+  getCaretBoundary,
+  computeNewCursorPosition,
+  presets,
+} from "raqam/core";
+
+// Equivalent server-focused import:
+import { createFormatter } from "raqam/server";
+```
+
+## `createFormatter(options)`
+
+Build a cached `Intl.NumberFormat` wrapper with optional affixes and fraction
+digit overrides.
+
+```ts
+const formatter = createFormatter({
+  locale: "en-US",
+  formatOptions: { style: "currency", currency: "USD" },
+  maximumFractionDigits: 2,
+  fixedDecimalScale: true,
+});
+
+formatter.format(1234.5);
+// "$1,234.50"
+```
+
+Returned API:
+
+| Method | Description |
+|--------|-------------|
+| `format(value)` | Returns the formatted string. |
+| `formatToParts(value)` | Returns `Intl.NumberFormatPart[]`. |
+| `formatResult(value)` | Returns `{ formatted, parts }`. |
+| `getLocaleInfo()` | Returns separators, minus sign, zero digit, and RTL info. |
+
+## `createParser(options)`
+
+Create a locale-aware parser that accepts the same locale, affix, and
+sign/decimal constraints used by the formatter.
+
+```ts
+const parser = createParser({
+  locale: "fa-IR",
+  suffix: " تومان",
+});
+
+parser.parse("۱۲۳٬۴۵۶ تومان").value;
+// 123456
+```
+
+Returned API:
+
+| Method | Description |
+|--------|-------------|
+| `parse(input)` | Returns `{ value, isValid, isIntermediate }`. |
+| `isIntermediate(input)` | Detects incomplete-but-valid editing states like `"-"` or `"1."`. |
+| `getLocaleInfo()` | Returns locale metadata used by the parser. |
+
+## `normalizeDigits(input)`
+
+Converts registered non-Latin digits to ASCII without touching other
+characters.
+
+```ts
+normalizeDigits("۱2٣");
+// "123"
+```
+
+Use this when you need normalized digits before your own validation or storage
+logic.
+
+## `registerLocale(config)`
+
+Add support for another digit block.
+
+```ts
+registerLocale({
+  digitBlocks: [[0xff10, 0xff19]],
+});
+
+normalizeDigits("１２３");
+// "123"
+```
+
+Use this only for scripts not already covered by the built-in locale plugins.
+For Persian, Arabic, Hindi, Bengali, and Thai, prefer the ready-made modules in
+`raqam/locales/*`.
+
+## Caret helpers
+
+These power the live-formatting cursor behavior and are useful only when you
+build your own custom input pipeline.
+
+### `getCaretBoundary(formattedValue, localeInfo)`
+
+Returns a `boolean[]` showing which positions in a formatted string are valid
+caret stops.
+
+### `computeNewCursorPosition(oldInput, oldCursor, newFormatted, localeInfo, inputType?)`
+
+Maps the caret from the pre-format string to the new formatted string after an
+edit. The optional `inputType` (the native `InputEvent.inputType`, e.g.
+`"deleteContentBackward"`) refines deletion handling around grouping separators.
+
+```ts
+const formatter = createFormatter({ locale: "en-US" });
+const info = formatter.getLocaleInfo();
+
+computeNewCursorPosition("1234", 4, "1,234", info);
+// 5
+```
+
+## Result types
+
+The formatter and parser return these shapes (all exported as types from
+`raqam`, `raqam/core`, and `raqam/server`):
+
+```ts
+interface LocaleInfo {
+  decimalSeparator: string;   // "." en-US, "," de-DE, "٫" fa-IR
+  groupingSeparator: string;  // "," en-US, "." de-DE, "٬" fa-IR
+  minusSign: string;          // usually "-", but locale-specific
+  zero: string;               // "0" Latin, "۰" Persian, …
+  isRTL: boolean;             // true for ar/he/fa/ur/…
+}
+
+interface ParseResult {
+  value: number | null;       // parsed number, or null if empty/invalid
+  isValid: boolean;           // true for a complete, valid number
+  isIntermediate: boolean;    // valid-but-incomplete ("1.", "1.50", "-")
+}
+
+interface FormatResult {
+  formatted: string;          // the full formatted string
+  parts: Intl.NumberFormatPart[];
+}
+
+type CaretBoundary = boolean[]; // length = formatted.length + 1
+```
+
+`isIntermediate` is what powers live formatting — see
+[Formatting & Behavior → Intermediate states](/docs/guides/formatting#intermediate-states).
+
+## Presets from the core entrypoint
+
+`presets` is also available from `raqam/core` and `raqam/server`, so you can
+share formatting options between client and server code.
+
+```ts
+import { createFormatter, presets } from "raqam/server";
+
+const formatter = createFormatter({
+  locale: "en-US",
+  formatOptions: presets.currency("USD"),
+});
+```
+
+<Callout type="info">
+  Reach for these APIs when you need formatting or parsing without the React
+  state machine. For actual inputs, prefer <code>useNumberFieldState</code> +
+  <code>useNumberField</code> or the <code>NumberField</code> components.
+</Callout>

@@ -1,6 +1,6 @@
 # raqam — patterns and examples
 
-Prefer the **live playground** for experimentation: [https://47vigen.github.io/raqam/playground/](https://47vigen.github.io/raqam/playground/)
+Prefer the **live playground** for experimentation: [https://raqam.vercel.app/docs/playground](https://raqam.vercel.app/docs/playground)
 
 ## Minimal NumberField
 
@@ -56,7 +56,7 @@ import { presets, NumberField } from "raqam";
 </NumberField.Root>
 ```
 
-More preset names and options: [Format presets](https://47vigen.github.io/raqam/api/presets/).
+More preset names and options: [Format presets](https://raqam.vercel.app/docs/api/presets).
 
 ## Persian locale plugin + suffix
 
@@ -201,7 +201,7 @@ The scrub area uses the Pointer Lock API and is keyboard accessible
 
 ## react-hook-form (Controller)
 
-Full recipe: [https://47vigen.github.io/raqam/recipes/react-hook-form/](https://47vigen.github.io/raqam/recipes/react-hook-form/)
+Full recipe: [https://raqam.vercel.app/docs/recipes/react-hook-form](https://raqam.vercel.app/docs/recipes/react-hook-form)
 
 Sketch:
 
@@ -231,12 +231,12 @@ Sketch:
 Style the root with `data-focused`, `data-invalid`, `data-disabled`,
 `data-readonly`, `data-required`, and `data-scrubbing`. For RTL-specific input
 styling, target `input[data-rtl]`. See README and
-[components](https://47vigen.github.io/raqam/api/components/).
+[components](https://raqam.vercel.app/docs/api/components).
 
 ## More recipes (external)
 
-- [Formik](https://47vigen.github.io/raqam/recipes/formik/)
-- [Tailwind CSS](https://47vigen.github.io/raqam/recipes/tailwind/)
-- [shadcn/ui](https://47vigen.github.io/raqam/recipes/shadcn-ui/)
-- [Financial](https://47vigen.github.io/raqam/recipes/financial/)
-- [Persian e-commerce](https://47vigen.github.io/raqam/recipes/persian-ecommerce/)
+- [Formik](https://raqam.vercel.app/docs/recipes/formik)
+- [Tailwind CSS](https://raqam.vercel.app/docs/recipes/tailwind)
+- [shadcn/ui](https://raqam.vercel.app/docs/recipes/shadcn-ui)
+- [Financial](https://raqam.vercel.app/docs/recipes/financial)
+- [Persian e-commerce](https://raqam.vercel.app/docs/recipes/persian-ecommerce)

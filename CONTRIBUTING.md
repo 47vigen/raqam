@@ -46,7 +46,7 @@ For the **design rationale** behind this architecture — why input is always
 `type="text"`, how the cursor-preservation algorithm works, the i18n/RTL
 strategy, and the full set of ADRs — see [`DEFINITION.md`](DEFINITION.md) (the
 original design spec). For the user-facing API, see [`README.md`](README.md) and
-the [docs site](https://47vigen.github.io/raqam/).
+the [docs site](https://raqam.vercel.app).
 
 ## Testing
 

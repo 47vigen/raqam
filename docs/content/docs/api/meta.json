@@ -1,0 +1,12 @@
+{
+  "title": "API Reference",
+  "pages": [
+    "use-number-field-state",
+    "use-number-field",
+    "components",
+    "use-number-field-format",
+    "presets",
+    "core-utilities",
+    "advanced-primitives"
+  ]
+}

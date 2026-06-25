@@ -1,0 +1,11 @@
+{
+  "title": "Recipes",
+  "pages": [
+    "react-hook-form",
+    "formik",
+    "tailwind",
+    "shadcn-ui",
+    "financial",
+    "persian-ecommerce"
+  ]
+}

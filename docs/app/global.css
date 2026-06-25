@@ -1,0 +1,133 @@
+@import "tailwindcss";
+@import "fumadocs-ui/css/neutral.css";
+@import "fumadocs-ui/css/preset.css";
+
+/* ============================================================
+   Theme tuned to match the 47vigen personal site:
+   warm-neutral gray ramp · single goose-green accent ·
+   sharp corners · Geist + JetBrains Mono · light default.
+   Tokens map onto Fumadocs' --color-fd-* system.
+   ============================================================ */
+
+@theme {
+  /* Reference the loaded faces by name and slot Vazirmatn in BEFORE any
+     metric-adjusted fallback (e.g. "Geist Fallback"), which would otherwise
+     render Persian/Arabic glyphs itself. Latin → Geist, Persian → Vazirmatn. */
+  --font-sans: "Geist", var(--font-vazirmatn), ui-sans-serif, system-ui,
+    -apple-system, sans-serif;
+  --font-display: "Geist", var(--font-vazirmatn), ui-sans-serif, system-ui,
+    sans-serif;
+  --font-mono: "JetBrains Mono", var(--font-vazirmatn), ui-monospace, "SF Mono",
+    Menlo, monospace;
+
+  /* Sharp by design (47vigen uses radius 0). */
+  --radius-sm: 0px;
+  --radius-md: 0px;
+  --radius-lg: 0px;
+  --radius-xl: 0px;
+  --radius-2xl: 0px;
+  --radius-3xl: 0px;
+
+  /* No shadows anywhere (47vigen is flat). */
+  --shadow-2xs: 0 0 #0000;
+  --shadow-xs: 0 0 #0000;
+  --shadow-sm: 0 0 #0000;
+  --shadow: 0 0 #0000;
+  --shadow-md: 0 0 #0000;
+  --shadow-lg: 0 0 #0000;
+  --shadow-xl: 0 0 #0000;
+  --shadow-2xl: 0 0 #0000;
+
+  /* Brand accent exposed as a Tailwind color → text-brand / bg-brand / border-brand */
+  --color-brand: var(--color-fd-primary);
+
+  --animate-rise: rise 0.6s cubic-bezier(0.2, 0.8, 0.2, 1) both;
+}
+
+@keyframes rise {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* ---- Light (default / paper) ---- */
+:root {
+  --color-fd-background: oklch(0.985 0.003 95);
+  --color-fd-foreground: oklch(0.14 0.004 95);
+  --color-fd-muted: oklch(0.965 0.004 95);
+  --color-fd-muted-foreground: oklch(0.43 0.007 95);
+  --color-fd-border: oklch(0.925 0.004 95);
+  --color-fd-card: oklch(1 0 0);
+  --color-fd-card-foreground: oklch(0.14 0.004 95);
+  --color-fd-popover: oklch(1 0 0);
+  --color-fd-popover-foreground: oklch(0.14 0.004 95);
+  --color-fd-primary: oklch(0.46 0.08 172);
+  --color-fd-primary-foreground: oklch(0.985 0.003 95);
+  --color-fd-secondary: oklch(0.965 0.004 95);
+  --color-fd-secondary-foreground: oklch(0.14 0.004 95);
+  --color-fd-accent: oklch(0.95 0.004 95);
+  --color-fd-accent-foreground: oklch(0.14 0.004 95);
+  --color-fd-ring: oklch(0.46 0.08 172);
+}
+
+/* ---- Dark (near-black, goose accent lifts) ---- */
+.dark {
+  --color-fd-background: oklch(0 0 0);
+  --color-fd-foreground: oklch(0.92 0.005 95);
+  --color-fd-muted: oklch(0.07 0.003 95);
+  --color-fd-muted-foreground: oklch(0.73 0.006 95);
+  --color-fd-border: oklch(0.215 0.005 95);
+  --color-fd-card: oklch(0.07 0.003 95);
+  --color-fd-card-foreground: oklch(0.92 0.005 95);
+  --color-fd-popover: oklch(0.07 0.003 95);
+  --color-fd-popover-foreground: oklch(0.92 0.005 95);
+  --color-fd-primary: oklch(0.58 0.085 172);
+  --color-fd-primary-foreground: oklch(0 0 0);
+  --color-fd-secondary: oklch(0.14 0.004 95);
+  --color-fd-secondary-foreground: oklch(0.92 0.005 95);
+  --color-fd-accent: oklch(0.14 0.004 95);
+  --color-fd-accent-foreground: oklch(0.92 0.005 95);
+  --color-fd-ring: oklch(0.58 0.085 172);
+}
+
+html {
+  scrollbar-gutter: stable;
+}
+
+html > body[data-scroll-locked] {
+  margin-right: 0px !important;
+  --removed-body-scroll-bar-size: 0px !important;
+}
+
+body {
+  font-family: var(--font-sans);
+}
+
+/* ============================================================
+   Sharp + flat, matching 47vigen: zero radius and zero shadow
+   on everything. Box-shadow focus rings are replaced with a
+   crisp outline so accessibility is preserved.
+   ============================================================ */
+*,
+::before,
+::after {
+  border-radius: 0 !important;
+  box-shadow: none !important;
+}
+
+:where(a, button, input, select, textarea, summary, [role="button"], [tabindex]):focus-visible {
+  outline: 2px solid var(--color-fd-ring);
+  outline-offset: 2px;
+}
+
+/* Nav logo chip — rounded to match the app-icon mark (overrides the global
+   sharp rule for this one element) with a hairline frame. */
+.nav-logo {
+  border: 1px solid var(--color-fd-border);
+  border-radius: 7px !important;
+}
