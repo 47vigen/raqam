@@ -1,7 +1,12 @@
 node_modules
 dist/
 coverage/
-docs/.astro/
+
+# Docs (Next.js + Fumadocs)
+docs/.next/
+docs/out/
+docs/.source/
+docs/next-env.d.ts
 
 # Playwright runtime artifacts
 playwright-report/

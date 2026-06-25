@@ -1,0 +1,157 @@
+---
+title: useNumberFieldState
+description: State management hook for number fields — use when building the Hook API pattern.
+---
+
+
+`useNumberFieldState` manages all state for a number field: the formatted
+display string, the underlying numeric value, validation, focus, and scrubbing.
+
+Pair it with [`useNumberField`](/docs/api/use-number-field) to get ARIA prop objects
+for your elements.
+
+## Import
+
+```ts
+import { useNumberFieldState } from "raqam";
+// or
+import { useNumberFieldState } from "raqam/react";
+```
+
+## Signature
+
+```ts
+function useNumberFieldState(
+  options: UseNumberFieldStateOptions
+): NumberFieldState;
+```
+
+## Options
+
+### Core
+
+| Prop | Type | Default | Description |
+|------|------|---------|-------------|
+| `locale` | `string` | runtime default | BCP 47 locale tag. Drives `Intl.NumberFormat`. |
+| `formatOptions` | `Intl.NumberFormatOptions` | `{}` | Passed to `Intl.NumberFormat`. |
+| `value` | `number \| null` | — | Controlled value. |
+| `defaultValue` | `number \| null` | `null` | Uncontrolled initial value. |
+| `onChange` | `(value: number \| null) => void` | — | Called whenever the parsed numeric value changes. |
+
+### Constraints
+
+| Prop | Type | Default | Description |
+|------|------|---------|-------------|
+| `minValue` | `number` | — | Minimum allowed value. |
+| `maxValue` | `number` | — | Maximum allowed value. |
+| `step` | `number` | `1` | Normal step (↑/↓ arrow keys). |
+| `largeStep` | `number` | `step × 10` | Large step (Shift+↑/↓, Page Up/Down). |
+| `smallStep` | `number` | `step × 0.1` | Small step (Ctrl/Cmd+↑/↓). |
+| `clampBehavior` | `"blur" \| "strict" \| "none"` | `"blur"` | When to clamp to min/max — clamp on blur, reject out-of-range keystrokes, or never. |
+| `allowOutOfRange` | `boolean` | `false` | Keep out-of-range values as typed and committed; sets `aria-invalid` instead of clamping. |
+| `allowNegative` | `boolean` | `true` | Allow negative values. |
+| `allowDecimal` | `boolean` | `true` | Allow decimal input. |
+
+See [Formatting & Behavior → Clamping](/docs/guides/formatting#clamping--ranges) for
+how `clampBehavior` and `allowOutOfRange` interact.
+
+### Formatting
+
+| Prop | Type | Default | Description |
+|------|------|---------|-------------|
+| `maximumFractionDigits` | `number` | — | Override `formatOptions.maximumFractionDigits`. |
+| `minimumFractionDigits` | `number` | — | Override `formatOptions.minimumFractionDigits`. |
+| `fixedDecimalScale` | `boolean` | `false` | Always show `maximumFractionDigits` decimal places. Requires `maximumFractionDigits` (explicit or from the format) to take effect. |
+| `prefix` | `string` | — | Prepend a string (e.g. `"$"`). |
+| `suffix` | `string` | — | Append a string (e.g. `" kg"`). |
+| `liveFormat` | `boolean` | `true` | Format on every keystroke (disable for IME locales). |
+
+### Validation
+
+| Prop | Type | Default | Description |
+|------|------|---------|-------------|
+| `validate` | `(v: number \| null) => boolean \| string \| null \| undefined` | — | Custom validator. Return `true`/`null`/`undefined` for valid, `false` for invalid, or a `string` to set an error message. |
+| `required` | `boolean` | `false` | Mark the field as required (sets `aria-required` / `data-required`). |
+
+### Escape hatches
+
+| Prop | Type | Default | Description |
+|------|------|---------|-------------|
+| `formatValue` | `(v: number) => string` | — | Replace the default formatter. |
+| `parseValue` | `(s: string) => { value: number \| null; isIntermediate: boolean }` | — | Replace the default parser. |
+| `onRawChange` | `(raw: string \| null) => void` | — | Called with the exact string the user typed (for arbitrary precision). |
+
+### Interaction
+
+| Prop | Type | Default | Description |
+|------|------|---------|-------------|
+| `disabled` | `boolean` | `false` | Disable all interaction. |
+| `readOnly` | `boolean` | `false` | Allow focus, disallow editing. |
+
+Press-and-hold timing (`stepHoldDelay`, `stepHoldInterval`) and other
+behavior-only props (`copyBehavior`, `allowMouseWheel`, `name`, `label`,
+`aria-*`) live on the behavior hook — see [`useNumberField`](/docs/api/use-number-field).
+
+## Return value — `NumberFieldState`
+
+| Property | Type | Description |
+|----------|------|-------------|
+| `inputValue` | `string` | The formatted string currently shown in the input. |
+| `numberValue` | `number \| null` | The parsed numeric value (`null` when empty/invalid). |
+| `rawValue` | `string \| null` | The exact string the user typed (for precision use cases). |
+| `isFocused` | `boolean` | Whether the input is focused. |
+| `isScrubbing` | `boolean` | Whether a scrub drag is in progress. |
+| `canIncrement` | `boolean` | False when at `maxValue` or `disabled`. |
+| `canDecrement` | `boolean` | False when at `minValue` or `disabled`. |
+| `validationState` | `"valid" \| "invalid"` | Result of the `validate` callback plus range checks. |
+| `validationError` | `string \| null` | Error message from `validate`, or `null`. |
+| `increment(amount?)` | `(amount?: number) => void` | Step up by `step` (or by `amount` when given). |
+| `decrement(amount?)` | `(amount?: number) => void` | Step down by `step` (or by `amount` when given). |
+| `incrementToMax()` | `() => void` | Jump to `maxValue`. |
+| `decrementToMin()` | `() => void` | Jump to `minValue`. |
+| `setInputValue(s, knownValue?)` | `(s: string, knownValue?: number \| null) => void` | Set the display string. Pass `knownValue` when `s` is a formatted string that can't be reparsed (compact, scientific, unit). |
+| `setNumberValue(n)` | `(n: number \| null) => void` | Directly set the numeric value. |
+| `commit()` | `() => number \| null` | Trigger blur-time formatting and clamping; returns the committed value. |
+| `setIsFocused(b)` | `(b: boolean) => void` | Sync focus state (called by `useNumberField`). |
+| `setIsScrubbing(b)` | `(b: boolean) => void` | Sync scrub state (called by `useScrubArea`). |
+| `options` | `UseNumberFieldStateOptions` | The resolved options object (read by `useNumberField`/`useScrubArea`). |
+
+## Example
+
+```tsx
+import { useRef } from "react";
+import { useNumberFieldState, useNumberField } from "raqam";
+
+function MyInput() {
+  const ref = useRef<HTMLInputElement>(null);
+
+  const state = useNumberFieldState({
+    locale: "en-US",
+    formatOptions: { style: "currency", currency: "USD" },
+    minValue: 0,
+    onChange: (value) => console.log("parsed value:", value),
+  });
+
+  const { labelProps, inputProps } = useNumberField(
+    { locale: "en-US", formatOptions: { style: "currency", currency: "USD" } },
+    state,
+    ref,
+  );
+
+  return (
+    <>
+      <label {...labelProps}>Amount</label>
+      <input {...inputProps} ref={ref} />
+      <p>Current: {state.numberValue}</p>
+    </>
+  );
+}
+```
+
+<Callout>
+  `useNumberFieldState` does NOT read from or write to the DOM. It's a pure
+  React state machine. Pair it with `useNumberField` for DOM integration.
+</Callout>
+
+If you need change metadata such as `"increment"` vs `"paste"` vs `"blur"`,
+use `NumberField.Root` with `onValueChange` instead of the raw state hook.

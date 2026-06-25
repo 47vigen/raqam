@@ -287,7 +287,7 @@ State management hook — returns `NumberFieldState`.
 | `required` | `boolean` | `false` | Mark the field as required |
 
 Also accepts `maximumFractionDigits`, `minimumFractionDigits`, `formatValue`,
-and `parseValue` — see the [full options reference](https://47vigen.github.io/raqam/api/use-number-field-state/).
+and `parseValue` — see the [full options reference](https://raqam.vercel.app/docs/api/use-number-field-state).
 
 ### `useNumberField(props, state, inputRef)`
 
@@ -302,7 +302,7 @@ every `useNumberFieldState` option plus the behavior-only props below:
 | `stepHoldInterval` | `number` | `200` | Press-and-hold repeat interval (ms) |
 | `label` / `name` / `id` / `aria-*` | `string` | — | Labelling, form name, and id wiring |
 
-→ Full reference: [`useNumberField`](https://47vigen.github.io/raqam/api/use-number-field/).
+→ Full reference: [`useNumberField`](https://raqam.vercel.app/docs/api/use-number-field).
 
 ### `NumberField.Root` extra props
 
