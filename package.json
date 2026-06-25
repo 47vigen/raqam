@@ -3,6 +3,7 @@
   "version": "0.3.2",
   "description": "The definitive React number input: live formatting, full i18n, headless, accessible",
   "type": "module",
+  "packageManager": "pnpm@10.33.4",
   "sideEffects": [
     "./dist/locales/*.js",
     "./dist/locales/*.cjs",

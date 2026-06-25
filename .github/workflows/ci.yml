@@ -2,39 +2,62 @@ name: CI
 
 on:
   push:
-    branches: [main, "claude/**"]
-  pull_request:
     branches: [main]
+  pull_request:
+
+# Cancel superseded runs on a PR; let every push to main complete.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+# Least privilege: jobs here only read the repo.
+permissions:
+  contents: read
 
 jobs:
+  lint:
+    name: Lint & Format
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: pnpm/action-setup@v4
+
+      - uses: actions/setup-node@v5
+        with:
+          node-version-file: .nvmrc
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      # `biome check` covers linting, formatting, and import order in one pass.
+      - name: Lint & format check
+        run: pnpm lint
+
   test:
     name: Test (React ${{ matrix.react-version }})
     runs-on: ubuntu-latest
     strategy:
+      fail-fast: false
       matrix:
         react-version: ["18", "19"]
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
 
       - uses: pnpm/action-setup@v4
-        with:
-          version: 10
 
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v5
         with:
-          node-version: 20
+          node-version-file: .nvmrc
           cache: pnpm
 
       - name: Install dependencies
-        run: pnpm install
+        run: pnpm install --frozen-lockfile
 
-      - name: Install React ${{ matrix.react-version }} for matrix
+      - name: Pin React 18 for this matrix leg
         if: matrix.react-version == '18'
-        run: |
-          pnpm add -w -D react@18 react-dom@18 @types/react@18 @types/react-dom@18
-
-      - name: Lint
-        run: pnpm lint
+        run: pnpm add -w -D react@18 react-dom@18 @types/react@18 @types/react-dom@18
 
       - name: TypeCheck
         run: pnpm typecheck
@@ -46,34 +69,32 @@ jobs:
     name: Build & Validate
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
 
       - uses: pnpm/action-setup@v4
-        with:
-          version: 10
 
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v5
         with:
-          node-version: 20
+          node-version-file: .nvmrc
           cache: pnpm
 
       - name: Install dependencies
-        run: pnpm install
+        run: pnpm install --frozen-lockfile
 
       - name: Build
         run: pnpm build
 
       - name: Validate package exports
-        run: npx publint
+        run: pnpm publint
 
       - name: Check type export correctness
-        run: npx @arethetypeswrong/cli --pack .
+        run: pnpm dlx @arethetypeswrong/cli --pack .
 
       - name: Check bundle sizes
         run: pnpm size
 
       - name: Upload dist artifact
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v5
         with:
           name: dist
           path: dist/

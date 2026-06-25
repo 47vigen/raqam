@@ -1,0 +1,58 @@
+# Automated dependency update checks.
+# Docs: https://docs.github.com/code-security/dependabot/dependabot-version-updates
+version: 2
+updates:
+  # ── Library package (root) ────────────────────────────────────────────────
+  - package-ecosystem: npm
+    directory: "/"
+    schedule:
+      interval: weekly
+      day: monday
+      time: "06:00"
+      timezone: Asia/Tehran
+    open-pull-requests-limit: 10
+    labels: ["dependencies"]
+    commit-message:
+      prefix: "chore(deps)"
+      prefix-development: "chore(deps-dev)"
+    # Batch low-risk updates into one PR each; majors stay separate for review.
+    groups:
+      production-dependencies:
+        dependency-type: production
+        update-types: [minor, patch]
+      development-dependencies:
+        dependency-type: development
+        update-types: [minor, patch]
+
+  # ── Docs app ──────────────────────────────────────────────────────────────
+  - package-ecosystem: npm
+    directory: "/docs"
+    schedule:
+      interval: weekly
+      day: monday
+      time: "06:00"
+      timezone: Asia/Tehran
+    open-pull-requests-limit: 10
+    labels: ["dependencies", "docs"]
+    commit-message:
+      prefix: "chore(docs-deps)"
+    groups:
+      docs-dependencies:
+        patterns: ["*"]
+        update-types: [minor, patch]
+
+  # ── GitHub Actions used by the workflows ──────────────────────────────────
+  - package-ecosystem: github-actions
+    directory: "/"
+    schedule:
+      interval: weekly
+      day: monday
+      time: "06:00"
+      timezone: Asia/Tehran
+    open-pull-requests-limit: 5
+    labels: ["dependencies", "github-actions"]
+    commit-message:
+      prefix: "ci(actions)"
+    groups:
+      github-actions:
+        patterns: ["*"]
