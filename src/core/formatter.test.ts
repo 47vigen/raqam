@@ -125,3 +125,27 @@ describe("createFormatter", () => {
     });
   });
 });
+
+describe("createFormatter — invalid options (graceful fallback, no throw)", () => {
+  it("does not throw on style:'currency' without a currency code", () => {
+    expect(() =>
+      createFormatter({
+        locale: "en-US",
+        formatOptions: { style: "currency" } as Intl.NumberFormatOptions,
+      }).format(5)
+    ).not.toThrow();
+  });
+
+  it("does not throw on an out-of-range fraction-digit option", () => {
+    expect(() =>
+      createFormatter({
+        locale: "en-US",
+        formatOptions: { minimumFractionDigits: -1 } as Intl.NumberFormatOptions,
+      }).format(5)
+    ).not.toThrow();
+  });
+
+  it("does not throw on a malformed locale tag", () => {
+    expect(() => createFormatter({ locale: "not a locale!!" }).format(5)).not.toThrow();
+  });
+});

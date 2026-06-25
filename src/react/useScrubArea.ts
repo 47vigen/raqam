@@ -131,6 +131,24 @@ export function useScrubArea(
     return () => {
       document.removeEventListener("pointerlockchange", handler);
       document.removeEventListener("mousemove", stableMouseMove.current);
+      // If this element still owns the pointer lock when it unmounts mid-scrub,
+      // release it so the user isn't stranded with a hidden cursor / locked page.
+      if (
+        typeof document.exitPointerLock === "function" &&
+        document.pointerLockElement &&
+        document.pointerLockElement === elementRef.current
+      ) {
+        document.exitPointerLock();
+      }
+      // The pointerlockchange handler is already detached above, so its release
+      // path won't run. Reset the shared scrubbing state here so a still-mounted
+      // Root (e.g. when only the ScrubArea is conditionally unmounted) doesn't
+      // keep data-scrubbing / ScrubAreaCursor stuck on.
+      if (isScrubbingRef.current) {
+        isScrubbingRef.current = false;
+        accumulatorRef.current = 0;
+        stateRef.current.setIsScrubbing(false);
+      }
     };
   }, []); // Empty deps — truly stable refs, no need to re-register
 
@@ -144,7 +162,16 @@ export function useScrubArea(
       virtualCursorRef.current = { x: e.clientX, y: e.clientY };
       setVirtualCursor({ x: e.clientX, y: e.clientY });
 
-      el.requestPointerLock();
+      // requestPointerLock() returns a promise in newer browsers and rejects
+      // when the lock can't be acquired (not user-gesture-driven, already exiting,
+      // etc.). Swallow it so it isn't an unhandled rejection, and reset pending
+      // scrub state.
+      const result = el.requestPointerLock() as unknown as Promise<void> | undefined;
+      if (result && typeof result.then === "function") {
+        result.catch(() => {
+          elementRef.current = null;
+        });
+      }
     },
     [] // No deps — reads via refs
   );

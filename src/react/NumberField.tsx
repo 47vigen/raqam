@@ -448,12 +448,26 @@ interface FormattedProps extends React.HTMLAttributes<HTMLSpanElement> {
 }
 
 const Formatted = forwardRef<HTMLSpanElement, FormattedProps>(function NumberFieldFormatted(
-  { render, ...rest },
+  { render, style, ...rest },
   ref
 ) {
-  const { state } = useNumberFieldContext();
+  const { state, aria } = useNumberFieldContext();
+  // The input only sets `style` for RTL locales, so its presence flags RTL.
+  const isRTL = aria.inputProps.style != null;
+  // Isolate the number from surrounding bidi text (and mirror the input's RTL
+  // alignment + data-rtl hook) so an inline formatted value renders correctly
+  // next to RTL copy instead of inheriting the wrong direction.
+  const mergedStyle: React.CSSProperties = isRTL
+    ? { direction: "ltr", textAlign: "right", unicodeBidi: "plaintext", ...style }
+    : { unicodeBidi: "isolate", ...style };
   const el = (
-    <span ref={ref} aria-hidden="true" {...rest}>
+    <span
+      ref={ref}
+      aria-hidden="true"
+      data-rtl={isRTL ? "" : undefined}
+      style={mergedStyle}
+      {...rest}
+    >
       {state.inputValue}
     </span>
   );

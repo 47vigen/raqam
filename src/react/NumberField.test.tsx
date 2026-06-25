@@ -74,6 +74,13 @@ describe("NumberField ARIA attributes", () => {
     expect(input).toHaveAttribute("aria-valuemax", "100");
   });
 
+  it("omits aria-valuemin/max for non-finite bounds (no NaN/Infinity in ARIA)", () => {
+    renderField({ minValue: Number.NaN, maxValue: Number.POSITIVE_INFINITY, locale: "en-US" });
+    const input = screen.getByRole("spinbutton");
+    expect(input).not.toHaveAttribute("aria-valuemin");
+    expect(input).not.toHaveAttribute("aria-valuemax");
+  });
+
   it("sets aria-disabled when disabled", () => {
     renderField({ disabled: true });
     expect(screen.getByRole("spinbutton")).toHaveAttribute("aria-disabled");

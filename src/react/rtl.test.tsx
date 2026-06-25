@@ -5,7 +5,8 @@
  * to receive the BiDi-safe CSS styles:
  *   direction: ltr        — digits always flow left-to-right (mathematical convention)
  *   text-align: right     — visual alignment in RTL page context
- *   unicode-bidi: embed   — isolates the LTR number from surrounding RTL text
+ *   unicode-bidi: plaintext — keeps the digit run LTR while letting an RTL
+ *                             suffix / currency name fall to its natural side
  *   data-rtl=""           — allows pure-CSS RTL-specific overrides
  *
  * LTR locales must NOT receive any of these overrides.
@@ -48,9 +49,9 @@ describe("RTL locales: BiDi-safe input styles", () => {
       expect(input.style.textAlign).toBe("right");
     });
 
-    it(`${locale}: unicode-bidi is embed`, () => {
+    it(`${locale}: unicode-bidi is plaintext`, () => {
       const input = renderInput(locale);
-      expect(input.style.unicodeBidi).toBe("embed");
+      expect(input.style.unicodeBidi).toBe("plaintext");
     });
 
     it(`${locale}: data-rtl attribute is present`, () => {
@@ -217,4 +218,31 @@ describe("input type/inputmode are locale-independent", () => {
       expect(input).toHaveAttribute("inputmode", "decimal");
     });
   }
+});
+
+// ── NumberField.Formatted: bidi isolation ─────────────────────────────────────
+
+describe("NumberField.Formatted: bidi handling", () => {
+  it("RTL: isolates the number with data-rtl and ltr direction", () => {
+    render(
+      <NumberField.Root locale="fa-IR" defaultValue={1234}>
+        <NumberField.Formatted data-testid="fmt" />
+      </NumberField.Root>
+    );
+    const fmt = screen.getByTestId("fmt");
+    expect(fmt).toHaveAttribute("data-rtl", "");
+    expect(fmt.style.direction).toBe("ltr");
+    expect(fmt.style.unicodeBidi).toBe("plaintext");
+  });
+
+  it("LTR: still isolates the number from surrounding bidi text", () => {
+    render(
+      <NumberField.Root locale="en-US" defaultValue={1234}>
+        <NumberField.Formatted data-testid="fmt" />
+      </NumberField.Root>
+    );
+    const fmt = screen.getByTestId("fmt");
+    expect(fmt).not.toHaveAttribute("data-rtl");
+    expect(fmt.style.unicodeBidi).toBe("isolate");
+  });
 });

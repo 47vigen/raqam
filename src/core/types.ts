@@ -55,7 +55,13 @@ export interface UseNumberFieldStateOptions {
   defaultValue?: number | null;
   /** Fires on every meaningful value change */
   onChange?: (value: number | null) => void;
-  /** BCP 47 locale tag (default: browser locale) */
+  /**
+   * BCP 47 locale tag. When omitted, the runtime default is used — the browser
+   * locale on the client, but the host's ICU/OS locale on the server. For SSR,
+   * pass an explicit `locale` so the server and first client render format
+   * identically; otherwise the initial formatted value can differ and trigger a
+   * React hydration mismatch.
+   */
   locale?: string;
   /** Full Intl.NumberFormatOptions — currency, percent, decimal, etc. */
   formatOptions?: Intl.NumberFormatOptions;

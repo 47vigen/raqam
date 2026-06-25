@@ -351,4 +351,55 @@ describe("NumberField.ScrubArea", () => {
     mock.simulateMouseMove(4, 0);
     expect(onChange).not.toHaveBeenCalled();
   });
+
+  it("omits aria-valuemin/max on the scrub area for non-finite bounds", () => {
+    render(
+      <NumberField.Root defaultValue={50} minValue={Number.NaN} maxValue={Number.POSITIVE_INFINITY}>
+        <NumberField.ScrubArea data-testid="scrub-area">Drag</NumberField.ScrubArea>
+        <NumberField.Input />
+      </NumberField.Root>
+    );
+    const scrub = screen.getByTestId("scrub-area");
+    expect(scrub).not.toHaveAttribute("aria-valuemin");
+    expect(scrub).not.toHaveAttribute("aria-valuemax");
+  });
+
+  it("clears the root scrubbing state when only the scrub area unmounts mid-scrub", () => {
+    setupPointerLockMock();
+    function Harness({ showScrub }: { showScrub: boolean }) {
+      return (
+        <NumberField.Root defaultValue={50}>
+          {showScrub ? (
+            <NumberField.ScrubArea data-testid="scrub-area">Drag</NumberField.ScrubArea>
+          ) : null}
+          <NumberField.Input />
+        </NumberField.Root>
+      );
+    }
+    const { container, rerender } = render(<Harness showScrub={true} />);
+    const root = container.firstChild as HTMLElement;
+    fireEvent.pointerDown(screen.getByTestId("scrub-area"), { button: 0, bubbles: true });
+    expect(root).toHaveAttribute("data-scrubbing", "");
+
+    // Unmount ONLY the scrub area; Root stays mounted.
+    rerender(<Harness showScrub={false} />);
+    expect(root).not.toHaveAttribute("data-scrubbing");
+  });
+
+  it("exits pointer lock when the scrub area unmounts mid-scrub", () => {
+    setupPointerLockMock();
+    const { unmount } = render(
+      <NumberField.Root defaultValue={50}>
+        <NumberField.ScrubArea data-testid="scrub-area">Drag</NumberField.ScrubArea>
+        <NumberField.Input />
+      </NumberField.Root>
+    );
+    const scrubArea = screen.getByTestId("scrub-area");
+    fireEvent.pointerDown(scrubArea, { button: 0, bubbles: true });
+    expect(document.pointerLockElement).toBe(scrubArea);
+
+    unmount();
+    // Cleanup must release the lock so the user isn't stranded with a hidden cursor.
+    expect(document.exitPointerLock).toHaveBeenCalled();
+  });
 });
