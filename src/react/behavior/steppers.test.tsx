@@ -1,4 +1,4 @@
-import { describe, it, expect } from "vitest";
+import { describe, it, expect, vi } from "vitest";
 import { renderField } from "../../test-utils.js";
 
 // ── Arrow-key stepping ────────────────────────────────────────────────────────
@@ -279,5 +279,46 @@ describe("steppers — allowOutOfRange", () => {
     await h.user.keyboard("{ArrowDown}");
     expect(h.value()).toBe(-5);
     expect(h.display()).toBe("-5");
+  });
+});
+
+// ── Focus — the input keeps focus while stepping (issue #101) ─────────────────
+
+describe("steppers — buttons keep the input focused", () => {
+  it("clicking + while the input is focused leaves focus on the input", async () => {
+    const onBlur = vi.fn();
+    const h = renderField({ defaultValue: 5, step: 1, onBlur });
+    const inc = h.input.ownerDocument.querySelector('[data-testid="inc"]')!;
+    await h.user.click(h.input);
+    await h.user.click(inc);
+    expect(h.value()).toBe(6);
+    expect(document.activeElement).toBe(h.input);
+    expect(onBlur).not.toHaveBeenCalled();
+  });
+
+  it("stepping then leaving the field commits the stepped value on blur", async () => {
+    const onValueCommitted = vi.fn();
+    const h = renderField({ defaultValue: 5, step: 1, onValueCommitted });
+    const inc = h.input.ownerDocument.querySelector('[data-testid="inc"]')!;
+    await h.user.click(h.input);
+    await h.user.click(inc);
+    await h.user.click(inc);
+    expect(onValueCommitted).not.toHaveBeenCalled();
+    await h.user.click(document.body);
+    expect(onValueCommitted).toHaveBeenCalledTimes(1);
+    expect(onValueCommitted).toHaveBeenCalledWith(7, { reason: "blur" });
+    expect(h.display()).toBe("7");
+  });
+
+  it("clicking − on an unfocused field focuses the input, so leaving commits it", async () => {
+    const onValueCommitted = vi.fn();
+    const h = renderField({ defaultValue: 5, step: 1, onValueCommitted });
+    const dec = h.input.ownerDocument.querySelector('[data-testid="dec"]')!;
+    await h.user.click(dec);
+    await h.user.click(dec);
+    expect(document.activeElement).toBe(h.input);
+    await h.user.click(document.body);
+    expect(onValueCommitted).toHaveBeenCalledTimes(1);
+    expect(onValueCommitted).toHaveBeenCalledWith(3, { reason: "blur" });
   });
 });
