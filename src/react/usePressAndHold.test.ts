@@ -41,6 +41,17 @@ describe("usePressAndHold", () => {
     expect(cb).toHaveBeenCalledTimes(0);
   });
 
+  it("prevents the default on press so the button never takes focus", () => {
+    const { result } = renderHook(() => usePressAndHold(vi.fn()));
+    const e = makePointerEvent();
+
+    act(() => {
+      result.current.onPointerDown(e);
+    });
+
+    expect(e.preventDefault).toHaveBeenCalled();
+  });
+
   it("does not fire on non-primary button (right-click)", () => {
     const cb = vi.fn();
     const { result } = renderHook(() => usePressAndHold(cb));

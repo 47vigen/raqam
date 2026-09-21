@@ -96,6 +96,9 @@ export function usePressAndHold(
       if (disabled) return;
       // Only primary button (left mouse / single touch / pen)
       if (e.button !== 0 && e.pointerType === "mouse") return;
+      // Keep focus where it is (the input) — otherwise the button steals it and
+      // the input blurs, committing the pre-step value.
+      e.preventDefault();
 
       // Fire immediately
       callbackRef.current();

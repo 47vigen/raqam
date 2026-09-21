@@ -1007,6 +1007,12 @@ export function useNumberField(
       }
     : null;
 
+  // Pressing a stepper focuses the input so a later blur commits the stepped
+  // value. Not on touch: focusing there would open the on-screen keyboard.
+  const focusInputOnPress = (e: React.PointerEvent) => {
+    if (e.pointerType !== "touch") inputRef.current?.focus({ preventScroll: true });
+  };
+
   const incrementButtonProps: React.ButtonHTMLAttributes<HTMLButtonElement> = {
     type: "button",
     tabIndex: -1,
@@ -1014,6 +1020,10 @@ export function useNumberField(
     disabled: disabled || !state.canIncrement,
     // Press-and-hold handlers replace simple onClick
     ...incrementHold,
+    onPointerDown: (e: React.PointerEvent) => {
+      incrementHold.onPointerDown(e);
+      focusInputOnPress(e);
+    },
     "data-disabled": disabled || !state.canIncrement ? "" : undefined,
   } as React.ButtonHTMLAttributes<HTMLButtonElement>;
 
@@ -1024,6 +1034,10 @@ export function useNumberField(
     disabled: disabled || !state.canDecrement,
     // Press-and-hold handlers replace simple onClick
     ...decrementHold,
+    onPointerDown: (e: React.PointerEvent) => {
+      decrementHold.onPointerDown(e);
+      focusInputOnPress(e);
+    },
     "data-disabled": disabled || !state.canDecrement ? "" : undefined,
   } as React.ButtonHTMLAttributes<HTMLButtonElement>;
 

@@ -192,6 +192,16 @@ test.describe("Compact notation", () => {
     await expect(input).toHaveValue(/K/i);
   });
 
+  test("stepper buttons keep focus on the input (issue #101)", async ({ mount }) => {
+    const component = await mount(<NumberInputField defaultValue={5} step={1} />);
+    const input = component.getByTestId("input");
+    await component.getByTestId("increment").click();
+    await expect(input).toBeFocused();
+    await component.getByTestId("increment").click();
+    await expect(input).toBeFocused();
+    await expect(input).toHaveAttribute("aria-valuenow", "7");
+  });
+
   test("decrement button updates value", async ({ mount }) => {
     const component = await mount(
       <NumberInputField
