@@ -12,6 +12,16 @@ updates:
       timezone: Asia/Tehran
     open-pull-requests-limit: 10
     labels: ["dependencies"]
+    # This entry covers the whole pnpm workspace, docs/ included. A separate
+    # "/docs" entry bumps docs/package.json without the root lockfile, so every
+    # one of its PRs failed `pnpm install --frozen-lockfile`.
+    ignore:
+      # TypeScript 6+ breaks the .d.ts build (see AGENTS.md).
+      - dependency-name: typescript
+        update-types: ["version-update:semver-major"]
+      # @playwright/experimental-ct-react stopped at 1.62.x; the runner must match it.
+      - dependency-name: "@playwright/test"
+        update-types: ["version-update:semver-minor", "version-update:semver-major"]
     commit-message:
       prefix: "chore(deps)"
       prefix-development: "chore(deps-dev)"
@@ -22,23 +32,6 @@ updates:
         update-types: [minor, patch]
       development-dependencies:
         dependency-type: development
-        update-types: [minor, patch]
-
-  # ── Docs app ──────────────────────────────────────────────────────────────
-  - package-ecosystem: npm
-    directory: "/docs"
-    schedule:
-      interval: weekly
-      day: monday
-      time: "06:00"
-      timezone: Asia/Tehran
-    open-pull-requests-limit: 10
-    labels: ["dependencies", "docs"]
-    commit-message:
-      prefix: "chore(docs-deps)"
-    groups:
-      docs-dependencies:
-        patterns: ["*"]
         update-types: [minor, patch]
 
   # ── GitHub Actions used by the workflows ──────────────────────────────────
