@@ -45,9 +45,9 @@ const FEATURES = [
 // full-bundle budget. Refresh both columns whenever size-limit output moves.
 const BUNDLE = [
   { name: "raqam/core", size: "~2.23 KB", w: "19%" },
-  { name: "raqam/react", size: "~9.48 KB", w: "79%" },
-  { name: "raqam (full)", size: "~9.62 KB", w: "80%" },
-  { name: "raqam/locales/fa", size: "196 B", w: "4%" },
+  { name: "raqam/react", size: "~8.81 KB", w: "73%" },
+  { name: "raqam (full)", size: "~9.06 KB", w: "76%" },
+  { name: "raqam/locales/fa", size: "190 B", w: "4%" },
 ]
 
 const EXAMPLE = `import { NumberField } from "raqam";
