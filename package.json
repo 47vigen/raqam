@@ -184,7 +184,7 @@
     "react-hook-form": "^7.90.0",
     "size-limit": "^14.2.0",
     "storybook": "^10.6.2",
-    "tsup": "^8.5.1",
+    "tsup": "^9.0.0",
     "typescript": "^5.9.3",
     "vitest": "^4.1.11"
   },
